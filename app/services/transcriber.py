@@ -10,6 +10,7 @@ from app.engine.base import BaseTranscriber, TranscriptionResult
 from app.engine.faster_whisper import FasterWhisperTranscriber
 from app.engine.cloud_apis import CloudTranscriber
 from app.services.exporter import Exporter
+from app.services.history import HistoryService
 
 from app.engine.whisper_cpp import WhisperCppTranscriber
 
@@ -34,7 +35,8 @@ class TranscriberService:
         model: Optional[str] = None,
         language: Optional[str] = None,
         task: str = "transcribe",
-        api_key: Optional[str] = None
+        api_key: Optional[str] = None,
+        original_filename: Optional[str] = None
     ) -> TranscriptionResult:
         _JOBS[job_id] = {
             "id": job_id,
@@ -102,6 +104,10 @@ class TranscriberService:
                 message="Transcrição concluída!",
                 result=result_dict
             )
+
+            # Persiste no disco para nunca perder após reiniciar o servidor
+            fname = original_filename or os.path.basename(file_path)
+            HistoryService.save(job_id=job_id, filename=fname, result_dict=result_dict)
 
             return result
 

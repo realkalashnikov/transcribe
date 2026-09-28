@@ -4,7 +4,9 @@ document.addEventListener("DOMContentLoaded", () => {
     const state = {
         mode: "local", // "local" | "cloud"
         files: [], // Array de { id, file, status, result, error, audioUrl }
-        activeFileId: null,
+        history: [], // Transcrições salvas no disco
+        activeItem: null, // Item atualmente exibido (da fila ou do histórico)
+        activeTab: "queue", // "queue" | "history"
         isProcessing: false,
         providers: [],
         localEngines: [],
@@ -33,8 +35,14 @@ document.addEventListener("DOMContentLoaded", () => {
     const dropzone = document.getElementById("dropzone");
     const fileInput = document.getElementById("file-input");
     const startTranscribeBtn = document.getElementById("start-transcribe-btn");
+    
+    // Abas de Fila vs Histórico
+    const tabQueue = document.getElementById("tab-queue");
+    const tabHistory = document.getElementById("tab-history");
     const fileQueueList = document.getElementById("file-queue-list");
+    const historyList = document.getElementById("history-list");
     const queueCount = document.getElementById("queue-count");
+    const historyCount = document.getElementById("history-count");
     const clearQueueBtn = document.getElementById("clear-queue-btn");
 
     const progressContainer = document.getElementById("progress-container");
@@ -82,11 +90,13 @@ document.addEventListener("DOMContentLoaded", () => {
     async function init() {
         if (window.AppIcons) window.AppIcons.renderAll();
         setupTabs();
+        setupHistoryTabs();
         setupDragAndDrop();
         setupActions();
         setupAudioPlayer();
         setupSearch();
         await loadSystemInfo();
+        await loadHistory();
         loadSavedApiKeys();
         if (window.AppIcons) window.AppIcons.renderAll();
     }
@@ -158,6 +168,122 @@ document.addEventListener("DOMContentLoaded", () => {
             hardwareText.textContent = "Erro de conexão com backend";
         }
     }
+
+    // Gerenciamento de Histórico Salvo no Disco
+    async function loadHistory() {
+        try {
+            const resp = await fetch("/api/history");
+            if (!resp.ok) return;
+            state.history = await resp.json();
+            renderHistory();
+        } catch (err) {
+            console.error("Erro ao carregar histórico:", err);
+        }
+    }
+
+    function setupHistoryTabs() {
+        tabQueue.addEventListener("click", () => {
+            state.activeTab = "queue";
+            tabQueue.classList.add("active");
+            tabHistory.classList.remove("active");
+            fileQueueList.classList.remove("hidden");
+            historyList.classList.add("hidden");
+            clearQueueBtn.style.display = state.files.length > 0 ? "inline-flex" : "none";
+        });
+
+        tabHistory.addEventListener("click", () => {
+            state.activeTab = "history";
+            tabHistory.classList.add("active");
+            tabQueue.classList.remove("active");
+            historyList.classList.remove("hidden");
+            fileQueueList.classList.add("hidden");
+            clearQueueBtn.style.display = "none";
+            loadHistory();
+        });
+    }
+
+    function renderHistory() {
+        historyCount.textContent = state.history.length;
+
+        if (state.history.length === 0) {
+            historyList.className = "queue-list empty" + (state.activeTab === "history" ? "" : " hidden");
+            historyList.innerHTML = `<p class="empty-msg">Nenhuma transcrição salva no disco ainda.</p>`;
+            return;
+        }
+
+        historyList.className = "queue-list" + (state.activeTab === "history" ? "" : " hidden");
+        historyList.innerHTML = "";
+
+        state.history.forEach(item => {
+            const div = document.createElement("div");
+            const isActive = state.activeItem && state.activeItem.id === item.id;
+            div.className = `queue-item ${isActive ? "active" : ""}`;
+            div.onclick = () => openHistoryItem(item.id);
+
+            const durStr = `${(item.duration || 0).toFixed(0)}s`;
+            const langStr = item.language ? item.language.toUpperCase() : "AUTO";
+
+            div.innerHTML = `
+                <div class="queue-item-left">
+                    <span class="file-icon-box">${AppIcons.get("fileText", "ui-icon")}</span>
+                    <div>
+                        <div class="file-name" title="${item.filename}">${escapeHtml(item.filename)}</div>
+                        <small style="color: var(--text-dim);">${item.saved_at} • ${durStr}</small>
+                    </div>
+                </div>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <span class="file-status-badge status-done">${langStr}</span>
+                    <button type="button" class="btn-text" title="Excluir do disco" onclick="event.stopPropagation(); window.__deleteHistory('${item.id}')">
+                        ${AppIcons.get("trash", "ui-icon ui-icon-sm")}
+                    </button>
+                </div>
+            `;
+            historyList.appendChild(div);
+        });
+    }
+
+    async function openHistoryItem(id) {
+        try {
+            showProgress("Carregando transcrição do histórico...", 30);
+            const resp = await fetch(`/api/history/${id}`);
+            if (!resp.ok) throw new Error("Erro ao carregar item do histórico");
+            const fullData = await resp.json();
+
+            state.activeItem = {
+                id: fullData.id,
+                filename: fullData.filename,
+                result: fullData,
+                audioUrl: null // Áudio temporário já não está no navegador
+            };
+
+            showTranscriptionResult(state.activeItem);
+            renderHistory();
+            hideProgress();
+        } catch (err) {
+            console.error(err);
+            hideProgress();
+            showToast("Erro ao abrir transcrição salva.");
+        }
+    }
+
+    async function deleteHistoryItem(id) {
+        if (!confirm("Deseja realmente excluir esta transcrição do histórico?")) return;
+        try {
+            const resp = await fetch(`/api/history/${id}`, { method: "DELETE" });
+            if (!resp.ok) throw new Error("Erro ao excluir");
+            state.history = state.history.filter(h => h.id !== id);
+            if (state.activeItem && state.activeItem.id === id) {
+                state.activeItem = null;
+                resetTranscriptView();
+            }
+            renderHistory();
+            showToast("Item removido do histórico com sucesso.");
+        } catch (err) {
+            showToast("Erro ao excluir item.");
+        }
+    }
+
+    window.__deleteHistory = deleteHistoryItem;
 
     // Alternância de Abas (Local vs Nuvem)
     function setupTabs() {
@@ -255,7 +381,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 if (f.audioUrl) URL.revokeObjectURL(f.audioUrl);
             });
             state.files = [];
-            state.activeFileId = null;
+            state.activeItem = null;
             renderQueue();
             resetTranscriptView();
             updateStartButtonState();
@@ -274,6 +400,12 @@ document.addEventListener("DOMContentLoaded", () => {
                 error: null
             });
         });
+        
+        // Alterna para a aba da fila caso estivesse no histórico
+        if (state.activeTab !== "queue") {
+            tabQueue.click();
+        }
+
         renderQueue();
         updateStartButtonState();
     }
@@ -285,8 +417,8 @@ document.addEventListener("DOMContentLoaded", () => {
             URL.revokeObjectURL(target.audioUrl);
         }
         state.files = state.files.filter(f => f.id !== fileId);
-        if (state.activeFileId === fileId) {
-            state.activeFileId = null;
+        if (state.activeItem && state.activeItem.id === fileId) {
+            state.activeItem = null;
             resetTranscriptView();
         }
         renderQueue();
@@ -295,23 +427,28 @@ document.addEventListener("DOMContentLoaded", () => {
 
     function renderQueue() {
         queueCount.textContent = state.files.length;
-        clearQueueBtn.style.display = state.files.length > 0 ? "inline-flex" : "none";
+        if (state.activeTab === "queue") {
+            clearQueueBtn.style.display = state.files.length > 0 ? "inline-flex" : "none";
+        }
 
         if (state.files.length === 0) {
-            fileQueueList.className = "queue-list empty";
+            fileQueueList.className = "queue-list empty" + (state.activeTab === "queue" ? "" : " hidden");
             fileQueueList.innerHTML = `<p class="empty-msg">Nenhum arquivo adicionado ainda.</p>`;
             return;
         }
 
-        fileQueueList.className = "queue-list";
+        fileQueueList.className = "queue-list" + (state.activeTab === "queue" ? "" : " hidden");
         fileQueueList.innerHTML = "";
 
         state.files.forEach(item => {
             const div = document.createElement("div");
-            div.className = `queue-item ${item.id === state.activeFileId ? "active" : ""}`;
+            const isActive = state.activeItem && state.activeItem.id === item.id;
+            div.className = `queue-item ${isActive ? "active" : ""}`;
             div.onclick = () => {
                 if (item.result) {
+                    state.activeItem = item;
                     showTranscriptionResult(item);
+                    renderQueue();
                 }
             };
 
@@ -373,8 +510,6 @@ document.addEventListener("DOMContentLoaded", () => {
             const dur = nativeAudio.duration;
             audioScrubber.value = (cur / dur) * 100;
             audioCurrentTime.textContent = formatTime(cur);
-
-            // Destaca o trecho correspondente no texto
             highlightActiveSegment(cur);
         });
 
@@ -421,9 +556,8 @@ document.addEventListener("DOMContentLoaded", () => {
         });
 
         copyBtn.addEventListener("click", () => {
-            const activeItem = state.files.find(f => f.id === state.activeFileId);
-            if (!activeItem || !activeItem.result) return;
-            navigator.clipboard.writeText(activeItem.result.text);
+            if (!state.activeItem || !state.activeItem.result) return;
+            navigator.clipboard.writeText(state.activeItem.result.text);
             showToast("Texto copiado para a área de transferência!");
         });
 
@@ -434,11 +568,12 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     function triggerDownload(format) {
-        const activeItem = state.files.find(f => f.id === state.activeFileId);
-        if (!activeItem || !activeItem.result) return;
-
-        const content = activeItem.result.exports ? activeItem.result.exports[format] : activeItem.result.text;
-        const baseName = activeItem.file.name.substring(0, activeItem.file.name.lastIndexOf('.')) || activeItem.file.name;
+        if (!state.activeItem || !state.activeItem.result) return;
+        const res = state.activeItem.result;
+        const content = res.exports ? res.exports[format] : res.text;
+        
+        const originalName = state.activeItem.file ? state.activeItem.file.name : (state.activeItem.filename || "transcricao");
+        const baseName = originalName.substring(0, originalName.lastIndexOf('.')) || originalName;
         const filename = `${baseName}.${format}`;
 
         const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
@@ -480,7 +615,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
         for (const item of pendingItems) {
             item.status = "processing";
-            state.activeFileId = item.id;
+            state.activeItem = item;
             renderQueue();
             showProgress("Enviando arquivo...", 0);
 
@@ -489,6 +624,8 @@ document.addEventListener("DOMContentLoaded", () => {
                 item.status = "completed";
                 item.result = result;
                 showTranscriptionResult(item);
+                // Atualiza lista de histórico em disco em background
+                loadHistory();
             } catch (err) {
                 console.error("Erro no processamento:", err);
                 item.status = "error";
@@ -573,17 +710,16 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     function showTranscriptionResult(item) {
-        state.activeFileId = item.id;
-        renderQueue();
-
+        state.activeItem = item;
         const res = item.result;
+        const displayName = item.file ? item.file.name : (item.filename || "Transcrição");
+
         transcriptFilename.innerHTML = `
             <span class="card-title-icon">${AppIcons.get("fileText", "ui-icon")}</span>
-            <span>${escapeHtml(item.file.name)}</span>
+            <span>${escapeHtml(displayName)}</span>
         `;
         transcriptMeta.style.display = "flex";
         exportActions.style.display = "flex";
-        audioPlayerContainer.classList.remove("hidden");
         statsStrip.classList.remove("hidden");
         searchWrapper.classList.remove("hidden");
 
@@ -599,21 +735,27 @@ document.addEventListener("DOMContentLoaded", () => {
         statChars.textContent = (res.text ? res.text.length : 0).toLocaleString();
         statSegments.textContent = (res.segments ? res.segments.length : 0).toString();
 
-        // Configura Audio Player
+        // Configura Audio Player se o arquivo local estiver disponível na sessão
         if (item.audioUrl) {
+            audioPlayerContainer.classList.remove("hidden");
             nativeAudio.src = item.audioUrl;
             playBtnIcon.innerHTML = AppIcons.get("play", "ui-icon");
             audioScrubber.value = 0;
             audioCurrentTime.textContent = "00:00";
+        } else {
+            audioPlayerContainer.classList.add("hidden");
+            if (nativeAudio) {
+                nativeAudio.pause();
+                nativeAudio.src = "";
+            }
         }
 
         renderActiveSegments();
     }
 
     function renderActiveSegments() {
-        const activeItem = state.files.find(f => f.id === state.activeFileId);
-        if (!activeItem || !activeItem.result) return;
-        const res = activeItem.result;
+        if (!state.activeItem || !state.activeItem.result) return;
+        const res = state.activeItem.result;
 
         transcriptBody.className = "transcript-body";
         transcriptBody.innerHTML = "";
@@ -650,10 +792,10 @@ document.addEventListener("DOMContentLoaded", () => {
                 <div class="segment-text">${displayText}</div>
             `;
 
-            // Clique no timestamp pula o áudio direto para o ponto inicial!
+            // Clique no timestamp pula o áudio direto para o ponto inicial se houver áudio
             const timeEl = div.querySelector(".timestamp");
             timeEl.onclick = () => {
-                if (nativeAudio.src) {
+                if (nativeAudio && nativeAudio.src) {
                     nativeAudio.currentTime = seg.start;
                     nativeAudio.play();
                     playBtnIcon.innerHTML = AppIcons.get("pause", "ui-icon");
@@ -669,9 +811,10 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     function showErrorInView(item) {
+        const displayName = item.file ? item.file.name : (item.filename || "Arquivo");
         transcriptFilename.innerHTML = `
             <span class="card-title-icon">${AppIcons.get("fileText", "ui-icon")}</span>
-            <span>${escapeHtml(item.file.name)}</span>
+            <span>${escapeHtml(displayName)}</span>
         `;
         transcriptMeta.style.display = "none";
         exportActions.style.display = "none";
@@ -682,7 +825,7 @@ document.addEventListener("DOMContentLoaded", () => {
         transcriptBody.className = "transcript-body";
         transcriptBody.innerHTML = `
             <div style="color: var(--danger); padding: 30px; text-align: center;">
-                <div style="width: 48px; height: 48px; margin: 0 auto 12px; color: var(--danger);">
+                <div style="width: 48px; height: 48px; margin: 0 auto 12px; color: var(--danger); display: flex; align-items: center; justify-content: center;">
                     ${AppIcons.get("x", "ui-icon ui-icon-xl")}
                 </div>
                 <h4>Falha na transcrição</h4>

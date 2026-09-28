@@ -159,12 +159,18 @@
 
             <!-- Painel Direito: Fila de Arquivos & Resultados -->
             <section class="results-panel">
-                <!-- Fila de Arquivos Selecionados -->
+                <!-- Fila de Arquivos & Histórico Salvo -->
                 <div class="card queue-card">
                     <div class="card-header-flex">
-                        <div class="card-title" style="margin-bottom: 0;">
-                            <span data-icon="fileAudio" data-icon-class="ui-icon"></span>
-                            <span>Arquivos (<span id="queue-count">0</span>)</span>
+                        <div class="panel-tabs">
+                            <button type="button" class="panel-tab-btn active" id="tab-queue">
+                                <span data-icon="fileAudio" data-icon-class="ui-icon ui-icon-sm"></span>
+                                <span>Fila (<span id="queue-count">0</span>)</span>
+                            </button>
+                            <button type="button" class="panel-tab-btn" id="tab-history">
+                                <span data-icon="clock" data-icon-class="ui-icon ui-icon-sm"></span>
+                                <span>Histórico Salvo (<span id="history-count">0</span>)</span>
+                            </button>
                         </div>
                         <button type="button" id="clear-queue-btn" class="btn-text" style="display: none;">
                             <span data-icon="trash" data-icon-class="ui-icon ui-icon-sm"></span> Limpar fila
@@ -172,6 +178,9 @@
                     </div>
                     <div id="file-queue-list" class="queue-list empty">
                         <p class="empty-msg">Nenhum arquivo adicionado ainda.</p>
+                    </div>
+                    <div id="history-list" class="queue-list empty hidden">
+                        <p class="empty-msg">Nenhuma transcrição salva no histórico ainda.</p>
                     </div>
                 </div>
 

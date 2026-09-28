@@ -17,6 +17,7 @@ from app.config import (
     SUPPORTED_LANGUAGES
 )
 from app.services.transcriber import TranscriberService
+from app.services.history import HistoryService
 
 app = FastAPI(
     title="Transcribe Studio",
@@ -85,7 +86,8 @@ async def transcribe_file(
             model=model,
             language=language,
             task=task,
-            api_key=api_key
+            api_key=api_key,
+            original_filename=file.filename
         )
 
         job_data = TranscriberService.get_job(job_id)
@@ -124,7 +126,8 @@ async def create_transcription_job(
         model=model,
         language=language,
         task=task,
-        api_key=api_key
+        api_key=api_key,
+        original_filename=file.filename
     )
 
     return {"job_id": job_id, "filename": file.filename, "status": "queued"}
@@ -135,3 +138,24 @@ def get_job_status(job_id: str):
     if not job:
         raise HTTPException(status_code=404, detail="Job não encontrado")
     return job
+
+@app.get("/api/history")
+def get_history():
+    """Retorna todas as transcrições salvas no disco."""
+    return HistoryService.list_all()
+
+@app.get("/api/history/{job_id}")
+def get_history_item(job_id: str):
+    """Retorna uma transcrição completa salva no disco."""
+    item = HistoryService.get(job_id)
+    if not item:
+        raise HTTPException(status_code=404, detail="Transcrição não encontrada no histórico")
+    return item
+
+@app.delete("/api/history/{job_id}")
+def delete_history_item(job_id: str):
+    """Remove uma transcrição do histórico."""
+    success = HistoryService.delete(job_id)
+    if not success:
+        raise HTTPException(status_code=404, detail="Não foi possível excluir o item do histórico")
+    return {"success": True, "message": "Item removido do histórico"}
