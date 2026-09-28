@@ -46,6 +46,19 @@
 
 ---
 
+## 🐍 Não tem o Python instalado? (Guia em 1 minuto)
+
+O Transcriber funciona com Python 3.10 ou superior:
+
+- **Windows**:
+  1. Baixe o instalador oficial em **[python.org/downloads](https://www.python.org/downloads/)**.
+  2. ⚠️ **MUITO IMPORTANTE**: Na primeira tela do instalador, marque a opção **☑ Add python.exe to PATH** antes de clicar em *Install Now*.
+  *(Ou instale direto pelo terminal: `winget install Python.Python.3.12`)*
+- **Linux (Ubuntu/Debian)**: `sudo apt update && sudo apt install -y python3 python3-pip python3-venv ffmpeg`
+- **macOS**: `brew install python`
+
+---
+
 ## ⚡ Como Iniciar no Windows
 
 ### Opção 1: Dois cliques (Mais fácil)
@@ -53,6 +66,7 @@ Basta dar dois cliques no arquivo:
 ```cmd
 run.bat
 ```
+> **Nota**: O script `run.bat` verifica se o Python está presente e instala as dependências automaticamente na primeira execução!
 
 ### Opção 2: Pelo Terminal
 ```powershell
