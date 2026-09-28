@@ -1,0 +1,12 @@
+version: '3.8'
+
+services:
+  transcribe:
+    build: .
+    container_name: transcribe-studio
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./uploads:/app/uploads
+      - ./exports:/app/exports
+    restart: unless-stopped

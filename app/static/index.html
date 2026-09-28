@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Transcribe Studio - faster-whisper & Cloud APIs</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Cabeçalho -->
+        <header class="app-header">
+            <div class="brand">
+                <div class="brand-icon">🎙️</div>
+                <div class="brand-text">
+                    <h1>Transcribe Studio</h1>
+                    <p class="subtitle">Transcrição rápida e precisa • Local (faster-whisper) ou Nuvem (Groq/OpenAI/Gemini)</p>
+                </div>
+            </div>
+            <div class="header-badges">
+                <span id="hardware-badge" class="badge badge-cpu">Detectando Hardware...</span>
+            </div>
+        </header>
+
+        <!-- Grade Principal -->
+        <main class="main-grid">
+            <!-- Painel Esquerdo: Configurações e Upload -->
+            <section class="control-panel">
+                <!-- Seletor de Modo -->
+                <div class="card mode-card">
+                    <label class="card-label">Motor de Transcrição</label>
+                    <div class="tabs">
+                        <button type="button" class="tab-btn active" data-mode="local" id="tab-local">
+                            <span class="icon">💻</span>
+                            <div>
+                                <strong>Local (Offline)</strong>
+                                <small>faster-whisper nativo</small>
+                            </div>
+                        </button>
+                        <button type="button" class="tab-btn" data-mode="cloud" id="tab-cloud">
+                            <span class="icon">☁️</span>
+                            <div>
+                                <strong>Nuvem (APIs)</strong>
+                                <small>Groq, OpenAI, Gemini</small>
+                            </div>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Configurações do Modo Local -->
+                <div id="local-settings" class="card settings-card">
+                    <h3 class="card-title">Configurações Locais</h3>
+                    <div class="form-group">
+                        <label for="local-engine">Motor Local</label>
+                        <select id="local-engine" class="form-control">
+                            <option value="faster-whisper" selected>Faster-Whisper (Python / CTranslate2 - Recomendado)</option>
+                            <option value="whisper.cpp">Whisper.cpp (C++ Otimizado / GGML)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="local-model">Tamanho do Modelo Whisper</label>
+                        <select id="local-model" class="form-control">
+                            <!-- Preenchido via API -->
+                            <option value="base" selected>Base (Equilíbrio rápido, recomendado para CPU)</option>
+                        </select>
+                        <span class="help-text">Modelos menores são mais rápidos; maiores têm vocabulário mais apurado.</span>
+                    </div>
+                </div>
+
+                <!-- Configurações do Modo Nuvem -->
+                <div id="cloud-settings" class="card settings-card hidden">
+                    <h3 class="card-title">Configurações de Nuvem</h3>
+                    <div class="form-group">
+                        <label for="cloud-provider">Provedor de API</label>
+                        <select id="cloud-provider" class="form-control">
+                            <option value="groq" selected>Groq (Whisper-large-v3 ultra-rápido)</option>
+                            <option value="openai">OpenAI (Whisper-1 oficial)</option>
+                            <option value="gemini">Google Gemini (Gemini 2.5 Flash)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="cloud-model">Modelo</label>
+                        <select id="cloud-model" class="form-control"></select>
+                    </div>
+                    <div class="form-group">
+                        <div class="label-with-link">
+                            <label for="cloud-api-key">Chave de API</label>
+                            <a href="#" id="api-key-link" target="_blank" class="external-link">Obter chave ↗</a>
+                        </div>
+                        <input type="password" id="cloud-api-key" class="form-control" placeholder="Cole sua API Key aqui...">
+                        <span class="help-text">Salva com segurança apenas no seu navegador (localStorage).</span>
+                    </div>
+                </div>
+
+                <!-- Opções Gerais de Transcrição -->
+                <div class="card settings-card">
+                    <h3 class="card-title">Idioma e Tarefa</h3>
+                    <div class="form-row">
+                        <div class="form-group flex-1">
+                            <label for="audio-language">Idioma do Áudio</label>
+                            <select id="audio-language" class="form-control">
+                                <option value="" selected>Detecção Automática</option>
+                                <option value="pt">Português</option>
+                                <option value="en">Inglês</option>
+                                <option value="es">Espanhol</option>
+                            </select>
+                        </div>
+                        <div class="form-group flex-1">
+                            <label for="audio-task">Tarefa</label>
+                            <select id="audio-task" class="form-control">
+                                <option value="transcribe" selected>Transcrever</option>
+                                <option value="translate">Traduzir para Inglês</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Área de Drag & Drop -->
+                <div class="card dropzone-card">
+                    <div class="dropzone" id="dropzone">
+                        <input type="file" id="file-input" multiple accept="audio/*,video/*" class="file-input">
+                        <div class="dropzone-content">
+                            <div class="upload-icon">📁</div>
+                            <h4>Arraste arquivos aqui</h4>
+                            <p>ou <span class="browse-link">procure no computador</span></p>
+                            <span class="file-formats">MP3, WAV, M4A, OGG, FLAC, MP4, MKV, WebM...</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Botão de Ação -->
+                <button type="button" id="start-transcribe-btn" class="btn btn-primary btn-block" disabled>
+                    <span class="btn-icon">⚡</span> Iniciar Transcrição
+                </button>
+            </section>
+
+            <!-- Painel Direito: Fila de Arquivos & Resultados -->
+            <section class="results-panel">
+                <!-- Fila de Arquivos Selecionados -->
+                <div class="card queue-card">
+                    <div class="card-header-flex">
+                        <h3 class="card-title">Arquivos (<span id="queue-count">0</span>)</h3>
+                        <button type="button" id="clear-queue-btn" class="btn-text" style="display: none;">Limpar fila</button>
+                    </div>
+                    <div id="file-queue-list" class="queue-list empty">
+                        <p class="empty-msg">Nenhum arquivo adicionado ainda.</p>
+                    </div>
+                </div>
+
+                <!-- Visualizador de Transcrição Ativa -->
+                <div class="card transcript-card">
+                    <div class="card-header-flex">
+                        <div>
+                            <h3 class="card-title" id="transcript-filename">Resultado da Transcrição</h3>
+                            <div class="meta-tags" id="transcript-meta" style="display: none;">
+                                <span class="badge" id="meta-duration">0.0s</span>
+                                <span class="badge" id="meta-lang">Idioma: -</span>
+                                <span class="badge" id="meta-engine">Motor: -</span>
+                            </div>
+                        </div>
+                        <div class="export-actions" id="export-actions" style="display: none;">
+                            <button type="button" class="btn btn-sm btn-outline" id="copy-btn" title="Copiar texto puro">📋 Copiar</button>
+                            <button type="button" class="btn btn-sm btn-outline" id="download-txt" title="Baixar texto simples (.txt)">TXT</button>
+                            <button type="button" class="btn btn-sm btn-outline" id="download-srt" title="Baixar legendas com tempo (.srt)">SRT</button>
+                            <button type="button" class="btn btn-sm btn-outline" id="download-vtt" title="Baixar legendas web (.vtt)">VTT</button>
+                            <button type="button" class="btn btn-sm btn-outline" id="download-json" title="Baixar dados estruturados (.json)">JSON</button>
+                        </div>
+                    </div>
+
+                    <!-- Progresso Geral -->
+                    <div id="progress-container" class="progress-container hidden">
+                        <div class="progress-bar-bg">
+                            <div id="progress-bar-fill" class="progress-bar-fill" style="width: 0%;"></div>
+                        </div>
+                        <div class="progress-info">
+                            <span id="progress-message">Processando...</span>
+                            <span id="progress-percentage">0%</span>
+                        </div>
+                    </div>
+
+                    <!-- Conteúdo da Transcrição -->
+                    <div id="transcript-body" class="transcript-body empty">
+                        <div class="placeholder-state">
+                            <span class="placeholder-icon">📄</span>
+                            <p>Selecione um arquivo de áudio ou vídeo e clique em "Iniciar Transcrição" para ver o texto com minutagem aqui.</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Scripts -->
+    <script src="/static/js/app.js"></script>
+</body>
+</html>
