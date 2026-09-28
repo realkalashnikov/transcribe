@@ -15,5 +15,11 @@ exports/**
 .venv/
 venv/
 *.log
-meu_audio.*
-/demo_reels.mp4
+
+# Mídias e gravações locais de teste
+*.mp4
+*.wav
+*.m4a
+*.ogg
+media/
+demo/
