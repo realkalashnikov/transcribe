@@ -267,7 +267,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 id: fullData.id,
                 filename: fullData.filename,
                 result: fullData,
-                audioUrl: null // Áudio temporário já não está no navegador
+                audioUrl: `/api/history/${id}/audio`
             };
 
             showTranscriptionResult(state.activeItem);
@@ -749,13 +749,19 @@ document.addEventListener("DOMContentLoaded", () => {
         statChars.textContent = (res.text ? res.text.length : 0).toLocaleString();
         statSegments.textContent = (res.segments ? res.segments.length : 0).toString();
 
-        // Configura Audio Player se o arquivo local estiver disponível na sessão
+        // Configura Audio Player se o arquivo de áudio estiver disponível
         if (item.audioUrl) {
             audioPlayerContainer.classList.remove("hidden");
             nativeAudio.src = item.audioUrl;
             playBtnIcon.innerHTML = AppIcons.get("play", "ui-icon");
             audioScrubber.value = 0;
             audioCurrentTime.textContent = "00:00";
+            if (res.duration) {
+                audioTotalTime.textContent = formatTime(res.duration);
+            }
+            nativeAudio.onerror = () => {
+                audioPlayerContainer.classList.add("hidden");
+            };
         } else {
             audioPlayerContainer.classList.add("hidden");
             if (nativeAudio) {

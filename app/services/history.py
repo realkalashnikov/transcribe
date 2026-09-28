@@ -1,5 +1,6 @@
 import os
 import json
+import shutil
 from datetime import datetime
 from typing import List, Dict, Any, Optional
 from pathlib import Path
@@ -8,14 +9,25 @@ from app.config import HISTORY_DIR
 
 class HistoryService:
     @staticmethod
-    def save(job_id: str, filename: str, result_dict: Dict[str, Any]) -> None:
-        """Salva a transcrição permanentemente no disco em formato JSON."""
+    def save(job_id: str, filename: str, result_dict: Dict[str, Any], audio_path: Optional[str] = None) -> None:
+        """Salva a transcrição permanentemente no disco em formato JSON e preserva o arquivo de áudio para re-escuta."""
+        audio_saved_name = None
+        if audio_path and os.path.exists(audio_path):
+            ext = os.path.splitext(audio_path)[1].lower() or ".mp3"
+            dest_audio = HISTORY_DIR / f"{job_id}{ext}"
+            try:
+                shutil.copy2(audio_path, dest_audio)
+                audio_saved_name = f"{job_id}{ext}"
+            except Exception as e:
+                print(f"Aviso ao salvar áudio no histórico: {e}")
+
         file_path = HISTORY_DIR / f"{job_id}.json"
         data = {
             "id": job_id,
             "filename": filename,
             "saved_at": datetime.now().strftime("%d/%m/%Y %H:%M"),
             "timestamp": datetime.now().timestamp(),
+            "audio_file": audio_saved_name,
             **result_dict
         }
         with open(file_path, "w", encoding="utf-8") as f:
@@ -32,7 +44,6 @@ class HistoryService:
             try:
                 with open(file_path, "r", encoding="utf-8") as f:
                     data = json.load(f)
-                    # Versão compacta para listagem rápida
                     items.append({
                         "id": data.get("id"),
                         "filename": data.get("filename", "Sem nome"),
@@ -41,7 +52,8 @@ class HistoryService:
                         "duration": data.get("duration", 0),
                         "language": data.get("language", "auto"),
                         "provider": data.get("provider", "local"),
-                        "model": data.get("model", "")
+                        "model": data.get("model", ""),
+                        "has_audio": bool(data.get("audio_file"))
                     })
             except Exception:
                 continue
@@ -63,13 +75,27 @@ class HistoryService:
             return None
 
     @staticmethod
+    def get_audio_path(job_id: str) -> Optional[Path]:
+        """Localiza o arquivo de áudio associado ao job_id no histórico."""
+        item = HistoryService.get(job_id)
+        if item and item.get("audio_file"):
+            p = HISTORY_DIR / item["audio_file"]
+            if p.exists():
+                return p
+        # Busca por extensão
+        for candidate in HISTORY_DIR.glob(f"{job_id}.*"):
+            if candidate.suffix.lower() != ".json":
+                return candidate
+        return None
+
+    @staticmethod
     def delete(job_id: str) -> bool:
-        """Exclui uma transcrição salva do disco."""
-        file_path = HISTORY_DIR / f"{job_id}.json"
-        if file_path.exists():
+        """Exclui a transcrição e qualquer arquivo de áudio associado."""
+        success = False
+        for p in HISTORY_DIR.glob(f"{job_id}.*"):
             try:
-                os.remove(file_path)
-                return True
+                os.remove(p)
+                success = True
             except Exception:
                 pass
-        return False
+        return success

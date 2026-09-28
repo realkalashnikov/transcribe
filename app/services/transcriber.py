@@ -105,9 +105,9 @@ class TranscriberService:
                 result=result_dict
             )
 
-            # Persiste no disco para nunca perder após reiniciar o servidor
+            # Persiste no disco (JSON e arquivo de áudio) para nunca perder após reiniciar o servidor
             fname = original_filename or os.path.basename(file_path)
-            HistoryService.save(job_id=job_id, filename=fname, result_dict=result_dict)
+            HistoryService.save(job_id=job_id, filename=fname, result_dict=result_dict, audio_path=file_path)
 
             return result
 

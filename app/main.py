@@ -152,6 +152,27 @@ def get_history_item(job_id: str):
         raise HTTPException(status_code=404, detail="Transcrição não encontrada no histórico")
     return item
 
+@app.get("/api/history/{job_id}/audio")
+def get_history_audio(job_id: str):
+    """Retorna o arquivo de áudio salvo para streaming/playback no player integrado."""
+    audio_path = HistoryService.get_audio_path(job_id)
+    if not audio_path or not audio_path.exists():
+        raise HTTPException(status_code=404, detail="Arquivo de áudio não encontrado para esta transcrição")
+    
+    ext = audio_path.suffix.lower()
+    media_map = {
+        ".mp3": "audio/mpeg",
+        ".wav": "audio/wav",
+        ".ogg": "audio/ogg",
+        ".m4a": "audio/mp4",
+        ".aac": "audio/aac",
+        ".flac": "audio/flac",
+        ".webm": "audio/webm",
+        ".mp4": "video/mp4"
+    }
+    media_type = media_map.get(ext, "application/octet-stream")
+    return FileResponse(str(audio_path), media_type=media_type)
+
 @app.delete("/api/history/{job_id}")
 def delete_history_item(job_id: str):
     """Remove uma transcrição do histórico."""
