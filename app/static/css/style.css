@@ -475,6 +475,30 @@ label {
     font-size: 0.78rem;
 }
 
+.btn-secondary {
+    background: rgba(99, 102, 241, 0.12);
+    border: 1px solid rgba(99, 102, 241, 0.3);
+    color: #c7d2fe;
+}
+
+.btn-secondary:hover:not(:disabled) {
+    background: rgba(99, 102, 241, 0.22);
+    border-color: var(--primary);
+    color: white;
+    transform: translateY(-1px);
+}
+
+.btn-danger {
+    background: linear-gradient(135deg, var(--danger) 0%, #b91c1c 100%);
+    color: white;
+    box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+}
+
+.btn-danger:hover:not(:disabled) {
+    background: linear-gradient(135deg, #f87171 0%, #dc2626 100%);
+    transform: translateY(-1px);
+}
+
 .btn-outline {
     background: var(--bg-surface-elevated);
     border: 1px solid var(--border-subtle);
@@ -485,6 +509,76 @@ label {
     color: var(--text-main);
     border-color: var(--primary);
     background: rgba(99, 102, 241, 0.1);
+}
+
+/* Card de Gravação via Microfone */
+.record-card {
+    padding: 12px 14px;
+    background: rgba(30, 41, 59, 0.35);
+    border: 1px dashed rgba(99, 102, 241, 0.3);
+    border-radius: var(--radius-sm);
+    transition: var(--transition);
+}
+
+.record-card:hover {
+    border-color: rgba(99, 102, 241, 0.55);
+    background: rgba(30, 41, 59, 0.5);
+}
+
+.record-active {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 2px 4px;
+}
+
+.recording-indicator {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 0.85rem;
+}
+
+.recording-pulse {
+    width: 10px;
+    height: 10px;
+    background: var(--danger);
+    border-radius: 50%;
+    animation: recordingPulse 1.4s infinite;
+}
+
+@keyframes recordingPulse {
+    0% {
+        transform: scale(0.95);
+        box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.8);
+    }
+    70% {
+        transform: scale(1.15);
+        box-shadow: 0 0 0 8px rgba(239, 68, 68, 0);
+    }
+    100% {
+        transform: scale(0.95);
+        box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
+    }
+}
+
+.recording-time {
+    font-family: monospace;
+    font-weight: 700;
+    color: #f87171;
+    font-size: 0.95rem;
+}
+
+.recording-label {
+    color: var(--text-muted);
+    font-size: 0.8rem;
+}
+
+.recording-buttons {
+    display: flex;
+    align-items: center;
+    gap: 8px;
 }
 
 .btn-text {

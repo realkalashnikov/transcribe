@@ -35,6 +35,14 @@ document.addEventListener("DOMContentLoaded", () => {
     const dropzone = document.getElementById("dropzone");
     const fileInput = document.getElementById("file-input");
     const startTranscribeBtn = document.getElementById("start-transcribe-btn");
+
+    // Microfone / Gravação ao Vivo
+    const recordBtn = document.getElementById("record-btn");
+    const recordIdle = document.getElementById("record-idle");
+    const recordActive = document.getElementById("record-active");
+    const recordingTimer = document.getElementById("recording-timer");
+    const stopRecordBtn = document.getElementById("stop-record-btn");
+    const cancelRecordBtn = document.getElementById("cancel-record-btn");
     
     // Abas de Fila vs Histórico
     const tabQueue = document.getElementById("tab-queue");
@@ -92,6 +100,7 @@ document.addEventListener("DOMContentLoaded", () => {
         setupTabs();
         setupHistoryTabs();
         setupDragAndDrop();
+        setupMicrophoneRecording();
         setupActions();
         setupAudioPlayer();
         setupSearch();
@@ -101,15 +110,23 @@ document.addEventListener("DOMContentLoaded", () => {
         
         // Auto-carrega demo se solicitado via query param (para screenshots e previews)
         const params = new URLSearchParams(window.location.search);
-        if (params.get("demo") && state.history.length > 0) {
-            await openHistoryItem(state.history[0].id);
-            if (state.activeItem) {
-                state.activeItem.audioUrl = "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=";
-                audioPlayerContainer.classList.remove("hidden");
-                audioTotalTime.textContent = "01:18";
-                audioCurrentTime.textContent = "00:00";
-                playBtnIcon.innerHTML = AppIcons.get("play", "ui-icon");
+        if (params.get("demo")) {
+            const targetId = state.history.some(h => h.id === "demo_transcription") ? "demo_transcription" : (state.history.length > 0 ? state.history[0].id : null);
+            if (targetId) {
+                await openHistoryItem(targetId);
+                if (state.activeItem) {
+                    state.activeItem.audioUrl = "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=";
+                    audioPlayerContainer.classList.remove("hidden");
+                    audioTotalTime.textContent = "01:18";
+                    audioCurrentTime.textContent = "00:00";
+                    playBtnIcon.innerHTML = AppIcons.get("play", "ui-icon");
+                }
             }
+        }
+
+        if (params.get("story")) {
+            const controlPanel = document.querySelector(".control-panel");
+            if (controlPanel) controlPanel.style.display = "none";
         }
 
         if (window.AppIcons) window.AppIcons.renderAll();
@@ -400,6 +417,109 @@ document.addEventListener("DOMContentLoaded", () => {
             resetTranscriptView();
             updateStartButtonState();
         });
+    }
+
+    // Gravação ao vivo pelo Microfone
+    function setupMicrophoneRecording() {
+        if (!recordBtn) return;
+
+        let mediaRecorder = null;
+        let audioChunks = [];
+        let recordInterval = null;
+        let recordSeconds = 0;
+        let stream = null;
+
+        recordBtn.addEventListener("click", async () => {
+            if (state.isProcessing) return;
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                showToast("Seu navegador não possui suporte para gravação via microfone.");
+                return;
+            }
+
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                audioChunks = [];
+                recordSeconds = 0;
+                recordingTimer.textContent = "00:00";
+
+                const mimeType = MediaRecorder.isTypeSupported("audio/webm;codecs=opus") 
+                    ? "audio/webm;codecs=opus" 
+                    : (MediaRecorder.isTypeSupported("audio/webm") ? "audio/webm" : "");
+
+                mediaRecorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
+
+                mediaRecorder.ondataavailable = (e) => {
+                    if (e.data && e.data.size > 0) {
+                        audioChunks.push(e.data);
+                    }
+                };
+
+                mediaRecorder.onstop = () => {
+                    clearInterval(recordInterval);
+                    if (stream) {
+                        stream.getTracks().forEach(t => t.stop());
+                    }
+
+                    if (audioChunks.length === 0) {
+                        resetRecordUI();
+                        return;
+                    }
+
+                    const blob = new Blob(audioChunks, { type: mediaRecorder.mimeType || "audio/webm" });
+                    const date = new Date();
+                    const timeStr = `${date.getHours().toString().padStart(2, '0')}h${date.getMinutes().toString().padStart(2, '0')}m${date.getSeconds().toString().padStart(2, '0')}s`;
+                    const ext = (mediaRecorder.mimeType && mediaRecorder.mimeType.includes("ogg")) ? "ogg" : "webm";
+                    const filename = `gravacao_mic_${timeStr}.${ext}`;
+
+                    const recordedFile = new File([blob], filename, { type: blob.type });
+                    addFiles([recordedFile]);
+                    showToast(`Áudio gravado (${formatTime(recordSeconds)}) pronto na fila!`);
+                    resetRecordUI();
+                };
+
+                mediaRecorder.start(250);
+                recordIdle.classList.add("hidden");
+                recordActive.classList.remove("hidden");
+                if (window.AppIcons) window.AppIcons.renderAll();
+
+                recordInterval = setInterval(() => {
+                    recordSeconds++;
+                    recordingTimer.textContent = formatTime(recordSeconds);
+                }, 1000);
+
+            } catch (err) {
+                console.error("Erro ao acessar microfone:", err);
+                showToast("Não foi possível acessar o microfone. Verifique as permissões.");
+                resetRecordUI();
+            }
+        });
+
+        stopRecordBtn.addEventListener("click", () => {
+            if (mediaRecorder && mediaRecorder.state !== "inactive") {
+                mediaRecorder.stop();
+            }
+        });
+
+        cancelRecordBtn.addEventListener("click", () => {
+            audioChunks = [];
+            if (mediaRecorder && mediaRecorder.state !== "inactive") {
+                mediaRecorder.stop();
+            }
+            if (stream) {
+                stream.getTracks().forEach(t => t.stop());
+            }
+            resetRecordUI();
+            showToast("Gravação cancelada.");
+        });
+
+        function resetRecordUI() {
+            clearInterval(recordInterval);
+            recordSeconds = 0;
+            if (recordingTimer) recordingTimer.textContent = "00:00";
+            if (recordActive) recordActive.classList.add("hidden");
+            if (recordIdle) recordIdle.classList.remove("hidden");
+            if (window.AppIcons) window.AppIcons.renderAll();
+        }
     }
 
     function addFiles(newFiles) {

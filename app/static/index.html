@@ -150,6 +150,32 @@
                     </div>
                 </div>
 
+                <!-- Gravação Rápida pelo Microfone -->
+                <div class="card record-card" id="record-card">
+                    <div class="record-idle" id="record-idle">
+                        <button type="button" id="record-btn" class="btn btn-secondary btn-block">
+                            <span data-icon="mic" data-icon-class="ui-icon"></span>
+                            <span>Gravar Áudio pelo Microfone</span>
+                        </button>
+                    </div>
+                    <div class="record-active hidden" id="record-active">
+                        <div class="recording-indicator">
+                            <span class="recording-pulse"></span>
+                            <span class="recording-time" id="recording-timer">00:00</span>
+                            <span class="recording-label">Gravando áudio...</span>
+                        </div>
+                        <div class="recording-buttons">
+                            <button type="button" id="stop-record-btn" class="btn btn-danger btn-sm">
+                                <span data-icon="square" data-icon-class="ui-icon ui-icon-sm"></span>
+                                <span>Concluir</span>
+                            </button>
+                            <button type="button" id="cancel-record-btn" class="btn btn-text btn-sm">
+                                Cancelar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Botão de Ação -->
                 <button type="button" id="start-transcribe-btn" class="btn btn-primary btn-block" disabled>
                     <span data-icon="zap" data-icon-class="ui-icon"></span>
