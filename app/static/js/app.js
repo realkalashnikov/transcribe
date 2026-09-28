@@ -103,6 +103,13 @@ document.addEventListener("DOMContentLoaded", () => {
         const params = new URLSearchParams(window.location.search);
         if (params.get("demo") && state.history.length > 0) {
             await openHistoryItem(state.history[0].id);
+            if (state.activeItem) {
+                state.activeItem.audioUrl = "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=";
+                audioPlayerContainer.classList.remove("hidden");
+                audioTotalTime.textContent = "01:18";
+                audioCurrentTime.textContent = "00:00";
+                playBtnIcon.innerHTML = AppIcons.get("play", "ui-icon");
+            }
         }
 
         if (window.AppIcons) window.AppIcons.renderAll();

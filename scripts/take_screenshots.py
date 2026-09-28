@@ -82,7 +82,7 @@ def main():
         preview_png = SCREENSHOTS_DIR / "preview.png"
         transcription_png = SCREENSHOTS_DIR / "transcription_view.png"
         
-        print(f"[3/4] Capturando preview em {preview_png} ...")
+        print(f"[3/4] Capturando preview em {preview_png} (1440x1180) ...")
         edge_cmd1 = [
             EDGE_PATH,
             "--headless",
@@ -90,14 +90,14 @@ def main():
             "--no-first-run",
             "--no-default-browser-check",
             "--hide-scrollbars",
-            "--window-size=1440,920",
+            "--window-size=1440,1180",
             f"--screenshot={str(preview_png)}",
             "http://127.0.0.1:8008"
         ]
         subprocess.run(edge_cmd1, check=True)
         print(" -> preview.png capturado!")
 
-        print(f"[3.5/4] Capturando visualização de transcrição ativa em {transcription_png} ...")
+        print(f"[3.5/4] Capturando visualização de transcrição ativa em {transcription_png} (1440x1180) ...")
         edge_cmd2 = [
             EDGE_PATH,
             "--headless",
@@ -105,12 +105,13 @@ def main():
             "--no-first-run",
             "--no-default-browser-check",
             "--hide-scrollbars",
-            "--window-size=1440,920",
+            "--window-size=1440,1180",
             f"--screenshot={str(transcription_png)}",
             "http://127.0.0.1:8008/?demo=1"
         ]
         subprocess.run(edge_cmd2, check=True)
         print(" -> transcription_view.png capturado!")
+
 
     finally:
         print("[4/4] Encerrando servidor temporário...")
