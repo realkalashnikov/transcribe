@@ -27,13 +27,26 @@ const ICONS = {
     link: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" x2="21" y1="14" y2="3"/></svg>`
 };
 
+const ICON_SIZES = {
+    "ui-icon-sm": 14,
+    "ui-icon-md": 18,
+    "ui-icon-lg": 22,
+    "ui-icon-xl": 32,
+    "ui-icon": 18
+};
+
 function getIcon(name, customClass = "") {
     const rawSvg = ICONS[name] || "";
     if (!rawSvg) return "";
-    if (customClass) {
-        return rawSvg.replace("<svg ", `<svg class="${customClass}" `);
+    const cls = customClass || "ui-icon";
+    let size = 18;
+    for (const [key, val] of Object.entries(ICON_SIZES)) {
+        if (cls.includes(key)) {
+            size = val;
+            break;
+        }
     }
-    return rawSvg.replace("<svg ", `<svg class="ui-icon" `);
+    return rawSvg.replace("<svg ", `<svg class="${cls}" width="${size}" height="${size}" style="width: ${size}px; height: ${size}px; flex-shrink: 0;" `);
 }
 
 window.AppIcons = {

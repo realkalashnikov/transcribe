@@ -50,18 +50,53 @@ body {
     background-attachment: fixed;
 }
 
-/* Icones SVG */
-.ui-icon {
+/* Icones SVG Estritos */
+svg, .ui-icon {
     width: 18px;
     height: 18px;
+    max-width: 100%;
+    max-height: 100%;
     display: inline-block;
     vertical-align: middle;
     flex-shrink: 0;
 }
 
-.ui-icon-sm { width: 14px; height: 14px; }
-.ui-icon-lg { width: 24px; height: 24px; }
-.ui-icon-xl { width: 42px; height: 42px; }
+svg.ui-icon-sm, .ui-icon-sm { width: 14px !important; height: 14px !important; }
+svg.ui-icon-md, .ui-icon-md { width: 18px !important; height: 18px !important; }
+svg.ui-icon-lg, .ui-icon-lg { width: 22px !important; height: 22px !important; }
+svg.ui-icon-xl, .ui-icon-xl { width: 32px !important; height: 32px !important; }
+
+.tab-icon, .brand-icon-wrapper, .upload-icon-box, .search-icon-box, .file-icon-box, .placeholder-icon {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    flex-shrink: 0;
+}
+
+.tab-btn .tab-icon {
+    width: 22px;
+    height: 22px;
+}
+.tab-btn .tab-icon svg {
+    width: 20px !important;
+    height: 20px !important;
+}
+.brand-icon-wrapper svg {
+    width: 24px !important;
+    height: 24px !important;
+}
+.upload-icon-box svg {
+    width: 26px !important;
+    height: 26px !important;
+}
+.search-icon-box svg {
+    width: 16px !important;
+    height: 16px !important;
+}
+.placeholder-icon svg {
+    width: 38px !important;
+    height: 38px !important;
+}
 
 .app-container {
     max-width: 1440px;
@@ -466,6 +501,41 @@ label {
 
 .btn-text:hover {
     color: var(--danger);
+}
+
+/* Panel Tabs (Fila vs Histórico) */
+.panel-tabs {
+    display: inline-flex;
+    gap: 6px;
+    background: var(--bg-input);
+    padding: 3px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border-subtle);
+}
+
+.panel-tab-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--text-dim);
+    background: transparent;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: var(--transition);
+}
+
+.panel-tab-btn:hover {
+    color: var(--text-main);
+}
+
+.panel-tab-btn.active {
+    background: var(--bg-surface-elevated);
+    color: #a5b4fc;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 }
 
 /* File Queue */
