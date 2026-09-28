@@ -98,6 +98,13 @@ document.addEventListener("DOMContentLoaded", () => {
         await loadSystemInfo();
         await loadHistory();
         loadSavedApiKeys();
+        
+        // Auto-carrega demo se solicitado via query param (para screenshots e previews)
+        const params = new URLSearchParams(window.location.search);
+        if (params.get("demo") && state.history.length > 0) {
+            await openHistoryItem(state.history[0].id);
+        }
+
         if (window.AppIcons) window.AppIcons.renderAll();
     }
 
