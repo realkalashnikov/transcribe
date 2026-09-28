@@ -1,9 +1,17 @@
 __pycache__/
 *.pyc
-uploads/*
+
+# Uploads e arquivos de áudio temporários
+uploads/**
 !uploads/.gitkeep
-exports/*
+
+# Transcrições exportadas e histórico de gravações
+exports/**
 !exports/.gitkeep
+!exports/history/.gitkeep
+
+# Ambientes virtuais e variáveis locais
 .env
 .venv/
 venv/
+*.log
