@@ -3,12 +3,14 @@ document.addEventListener("DOMContentLoaded", () => {
     // Estado da aplicação
     const state = {
         mode: "local", // "local" | "cloud"
-        files: [], // Array de objetos { id, file, status, result, error }
+        files: [], // Array de { id, file, status, result, error, audioUrl }
         activeFileId: null,
         isProcessing: false,
         providers: [],
+        localEngines: [],
         localModels: [],
-        languages: []
+        languages: [],
+        searchQuery: ""
     };
 
     // Elementos DOM
@@ -17,6 +19,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const localSettings = document.getElementById("local-settings");
     const cloudSettings = document.getElementById("cloud-settings");
     const hardwareBadge = document.getElementById("hardware-badge");
+    const hardwareText = document.getElementById("hardware-text");
 
     const localEngineSelect = document.getElementById("local-engine");
     const localModelSelect = document.getElementById("local-model");
@@ -39,7 +42,6 @@ document.addEventListener("DOMContentLoaded", () => {
     const progressMessage = document.getElementById("progress-message");
     const progressPercentage = document.getElementById("progress-percentage");
 
-    const transcriptCard = document.querySelector(".transcript-card");
     const transcriptFilename = document.getElementById("transcript-filename");
     const transcriptMeta = document.getElementById("transcript-meta");
     const metaDuration = document.getElementById("meta-duration");
@@ -47,6 +49,26 @@ document.addEventListener("DOMContentLoaded", () => {
     const metaEngine = document.getElementById("meta-engine");
     const exportActions = document.getElementById("export-actions");
     const transcriptBody = document.getElementById("transcript-body");
+
+    // Audio Player Elements
+    const audioPlayerContainer = document.getElementById("audio-player-container");
+    const nativeAudio = document.getElementById("native-audio");
+    const audioPlayBtn = document.getElementById("audio-play-btn");
+    const playBtnIcon = document.getElementById("play-btn-icon");
+    const audioScrubber = document.getElementById("audio-scrubber");
+    const audioCurrentTime = document.getElementById("audio-current-time");
+    const audioTotalTime = document.getElementById("audio-total-time");
+
+    // Stats & Search Elements
+    const statsStrip = document.getElementById("stats-strip");
+    const statDuration = document.getElementById("stat-duration");
+    const statWords = document.getElementById("stat-words");
+    const statChars = document.getElementById("stat-chars");
+    const statSegments = document.getElementById("stat-segments");
+
+    const searchWrapper = document.getElementById("search-wrapper");
+    const transcriptSearch = document.getElementById("transcript-search");
+    const toastContainer = document.getElementById("toast-container");
 
     const copyBtn = document.getElementById("copy-btn");
     const downloadTxt = document.getElementById("download-txt");
@@ -58,11 +80,15 @@ document.addEventListener("DOMContentLoaded", () => {
     init();
 
     async function init() {
+        if (window.AppIcons) window.AppIcons.renderAll();
         setupTabs();
         setupDragAndDrop();
         setupActions();
+        setupAudioPlayer();
+        setupSearch();
         await loadSystemInfo();
         loadSavedApiKeys();
+        if (window.AppIcons) window.AppIcons.renderAll();
     }
 
     // Carrega informações do servidor
@@ -73,17 +99,20 @@ document.addEventListener("DOMContentLoaded", () => {
 
             // Atualiza Hardware Badge
             if (data.cuda_available) {
-                hardwareBadge.textContent = "⚡ Aceleração GPU (CUDA) Ativa";
+                hardwareText.textContent = "Aceleração GPU (CUDA) Ativa";
                 hardwareBadge.className = "badge badge-cuda";
+                hardwareBadge.querySelector("[data-icon]").innerHTML = AppIcons.get("zap", "ui-icon ui-icon-sm");
             } else {
-                hardwareBadge.textContent = "💻 Modo CPU (int8 otimizado)";
+                hardwareText.textContent = "Modo CPU (int8 otimizado)";
                 hardwareBadge.className = "badge badge-cpu";
+                hardwareBadge.querySelector("[data-icon]").innerHTML = AppIcons.get("cpu", "ui-icon ui-icon-sm");
             }
 
             // Popula motores locais
-            if (data.local_engines && localEngineSelect) {
+            state.localEngines = data.local_engines || [];
+            if (localEngineSelect && state.localEngines.length > 0) {
                 localEngineSelect.innerHTML = "";
-                data.local_engines.forEach(eng => {
+                state.localEngines.forEach(eng => {
                     const opt = document.createElement("option");
                     opt.value = eng.id;
                     opt.textContent = eng.name;
@@ -126,7 +155,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
         } catch (err) {
             console.error("Erro ao carregar informações da API:", err);
-            hardwareBadge.textContent = "⚠️ Erro de conexão com backend";
+            hardwareText.textContent = "Erro de conexão com backend";
         }
     }
 
@@ -217,11 +246,14 @@ document.addEventListener("DOMContentLoaded", () => {
         fileInput.addEventListener("change", (e) => {
             const selectedFiles = Array.from(e.target.files);
             addFiles(selectedFiles);
-            fileInput.value = ""; // Reseta para permitir escolher o mesmo arquivo de novo
+            fileInput.value = "";
         });
 
         clearQueueBtn.addEventListener("click", () => {
             if (state.isProcessing) return;
+            state.files.forEach(f => {
+                if (f.audioUrl) URL.revokeObjectURL(f.audioUrl);
+            });
             state.files = [];
             state.activeFileId = null;
             renderQueue();
@@ -232,10 +264,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
     function addFiles(newFiles) {
         newFiles.forEach(file => {
+            const audioUrl = URL.createObjectURL(file);
             state.files.push({
                 id: "f_" + Math.random().toString(36).substring(2, 9),
                 file: file,
-                status: "pending", // pending, processing, completed, error
+                audioUrl: audioUrl,
+                status: "pending",
                 result: null,
                 error: null
             });
@@ -246,6 +280,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
     function removeFile(fileId) {
         if (state.isProcessing) return;
+        const target = state.files.find(f => f.id === fileId);
+        if (target && target.audioUrl) {
+            URL.revokeObjectURL(target.audioUrl);
+        }
         state.files = state.files.filter(f => f.id !== fileId);
         if (state.activeFileId === fileId) {
             state.activeFileId = null;
@@ -257,7 +295,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     function renderQueue() {
         queueCount.textContent = state.files.length;
-        clearQueueBtn.style.display = state.files.length > 0 ? "block" : "none";
+        clearQueueBtn.style.display = state.files.length > 0 ? "inline-flex" : "none";
 
         if (state.files.length === 0) {
             fileQueueList.className = "queue-list empty";
@@ -287,13 +325,16 @@ document.addEventListener("DOMContentLoaded", () => {
             const currentStatus = statusMap[item.status] || statusMap.pending;
 
             div.innerHTML = `
-                <div>
-                    <div class="file-name" title="${item.file.name}">${item.file.name}</div>
-                    <small style="color: var(--text-muted);">${sizeFormatted}</small>
+                <div class="queue-item-left">
+                    <span class="file-icon-box">${AppIcons.get("fileAudio", "ui-icon")}</span>
+                    <div>
+                        <div class="file-name" title="${item.file.name}">${escapeHtml(item.file.name)}</div>
+                        <small style="color: var(--text-dim);">${sizeFormatted}</small>
+                    </div>
                 </div>
                 <div style="display: flex; align-items: center; gap: 8px;">
                     <span class="file-status-badge ${currentStatus.class}">${currentStatus.label}</span>
-                    ${!state.isProcessing ? `<button type="button" class="btn-text" title="Remover" onclick="event.stopPropagation(); window.__removeFile('${item.id}')">✕</button>` : ''}
+                    ${!state.isProcessing ? `<button type="button" class="btn-text" title="Remover" onclick="event.stopPropagation(); window.__removeFile('${item.id}')">${AppIcons.get("x", "ui-icon ui-icon-sm")}</button>` : ''}
                 </div>
             `;
             fileQueueList.appendChild(div);
@@ -314,6 +355,65 @@ document.addEventListener("DOMContentLoaded", () => {
         startTranscribeBtn.disabled = !valid;
     }
 
+    // Player de Áudio Integrado
+    function setupAudioPlayer() {
+        audioPlayBtn.addEventListener("click", () => {
+            if (nativeAudio.paused) {
+                nativeAudio.play();
+                playBtnIcon.innerHTML = AppIcons.get("pause", "ui-icon");
+            } else {
+                nativeAudio.pause();
+                playBtnIcon.innerHTML = AppIcons.get("play", "ui-icon");
+            }
+        });
+
+        nativeAudio.addEventListener("timeupdate", () => {
+            if (!nativeAudio.duration) return;
+            const cur = nativeAudio.currentTime;
+            const dur = nativeAudio.duration;
+            audioScrubber.value = (cur / dur) * 100;
+            audioCurrentTime.textContent = formatTime(cur);
+
+            // Destaca o trecho correspondente no texto
+            highlightActiveSegment(cur);
+        });
+
+        nativeAudio.addEventListener("loadedmetadata", () => {
+            audioTotalTime.textContent = formatTime(nativeAudio.duration);
+        });
+
+        nativeAudio.addEventListener("ended", () => {
+            playBtnIcon.innerHTML = AppIcons.get("play", "ui-icon");
+        });
+
+        audioScrubber.addEventListener("input", () => {
+            if (!nativeAudio.duration) return;
+            const targetSec = (audioScrubber.value / 100) * nativeAudio.duration;
+            nativeAudio.currentTime = targetSec;
+            audioCurrentTime.textContent = formatTime(targetSec);
+        });
+    }
+
+    function highlightActiveSegment(currentTime) {
+        document.querySelectorAll(".segment-item").forEach(item => {
+            const start = parseFloat(item.dataset.start);
+            const end = parseFloat(item.dataset.end);
+            if (currentTime >= start && currentTime <= end) {
+                item.classList.add("playing-segment");
+            } else {
+                item.classList.remove("playing-segment");
+            }
+        });
+    }
+
+    // Busca no Texto
+    function setupSearch() {
+        transcriptSearch.addEventListener("input", (e) => {
+            state.searchQuery = e.target.value.trim().toLowerCase();
+            renderActiveSegments();
+        });
+    }
+
     // Ações de Botões e Exportações
     function setupActions() {
         startTranscribeBtn.addEventListener("click", () => {
@@ -324,9 +424,7 @@ document.addEventListener("DOMContentLoaded", () => {
             const activeItem = state.files.find(f => f.id === state.activeFileId);
             if (!activeItem || !activeItem.result) return;
             navigator.clipboard.writeText(activeItem.result.text);
-            const orig = copyBtn.textContent;
-            copyBtn.textContent = "✓ Copiado!";
-            setTimeout(() => copyBtn.textContent = orig, 1800);
+            showToast("Texto copiado para a área de transferência!");
         });
 
         downloadTxt.addEventListener("click", () => triggerDownload("txt"));
@@ -352,6 +450,24 @@ document.addEventListener("DOMContentLoaded", () => {
         a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
+
+        showToast(`Arquivo .${format.toUpperCase()} baixado!`);
+    }
+
+    function showToast(message) {
+        const toast = document.createElement("div");
+        toast.className = "toast toast-success";
+        toast.innerHTML = `
+            <span class="toast-icon">${AppIcons.get("check", "ui-icon")}</span>
+            <span>${escapeHtml(message)}</span>
+        `;
+        toastContainer.appendChild(toast);
+        setTimeout(() => {
+            toast.style.opacity = "0";
+            toast.style.transform = "translateY(10px)";
+            toast.style.transition = "all 0.3s";
+            setTimeout(() => toast.remove(), 300);
+        }, 2500);
     }
 
     // Execução da fila de transcrição
@@ -405,7 +521,6 @@ document.addEventListener("DOMContentLoaded", () => {
         formData.append("language", audioLanguageSelect.value);
         formData.append("task", audioTaskSelect.value);
 
-        // Dispara o Job em segundo plano para termos progresso real
         const jobResp = await fetch("/api/jobs", {
             method: "POST",
             body: formData
@@ -418,7 +533,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
         const { job_id } = await jobResp.json();
 
-        // Polling do progresso
         return new Promise((resolve, reject) => {
             const interval = setInterval(async () => {
                 try {
@@ -463,69 +577,154 @@ document.addEventListener("DOMContentLoaded", () => {
         renderQueue();
 
         const res = item.result;
-        transcriptFilename.textContent = item.file.name;
+        transcriptFilename.innerHTML = `
+            <span class="card-title-icon">${AppIcons.get("fileText", "ui-icon")}</span>
+            <span>${escapeHtml(item.file.name)}</span>
+        `;
         transcriptMeta.style.display = "flex";
         exportActions.style.display = "flex";
+        audioPlayerContainer.classList.remove("hidden");
+        statsStrip.classList.remove("hidden");
+        searchWrapper.classList.remove("hidden");
 
-        metaDuration.textContent = `⏱️ ${(res.duration || 0).toFixed(1)}s`;
-        metaLang.textContent = `🌐 ${res.language ? res.language.toUpperCase() : 'AUTO'}`;
-        metaEngine.textContent = `⚡ ${res.provider || 'local'}`;
+        // Metatags
+        metaDuration.innerHTML = `${AppIcons.get("clock", "ui-icon ui-icon-sm")} ${(res.duration || 0).toFixed(1)}s`;
+        metaLang.innerHTML = `${AppIcons.get("globe", "ui-icon ui-icon-sm")} ${res.language ? res.language.toUpperCase() : 'AUTO'}`;
+        metaEngine.innerHTML = `${AppIcons.get("zap", "ui-icon ui-icon-sm")} ${res.provider || 'local'}`;
+
+        // Estatísticas
+        statDuration.textContent = `${(res.duration || 0).toFixed(1)}s`;
+        const words = res.text ? res.text.trim().split(/\s+/).filter(Boolean).length : 0;
+        statWords.textContent = words.toLocaleString();
+        statChars.textContent = (res.text ? res.text.length : 0).toLocaleString();
+        statSegments.textContent = (res.segments ? res.segments.length : 0).toString();
+
+        // Configura Audio Player
+        if (item.audioUrl) {
+            nativeAudio.src = item.audioUrl;
+            playBtnIcon.innerHTML = AppIcons.get("play", "ui-icon");
+            audioScrubber.value = 0;
+            audioCurrentTime.textContent = "00:00";
+        }
+
+        renderActiveSegments();
+    }
+
+    function renderActiveSegments() {
+        const activeItem = state.files.find(f => f.id === state.activeFileId);
+        if (!activeItem || !activeItem.result) return;
+        const res = activeItem.result;
 
         transcriptBody.className = "transcript-body";
         transcriptBody.innerHTML = "";
 
         if (!res.segments || res.segments.length === 0) {
-            transcriptBody.innerHTML = `<p style="padding: 10px; line-height: 1.6;">${res.text || 'Nenhum texto detectado.'}</p>`;
+            transcriptBody.innerHTML = `<p style="padding: 10px; line-height: 1.6;">${escapeHtml(res.text || 'Nenhum texto detectado.')}</p>`;
             return;
         }
 
+        const query = state.searchQuery;
+        let matchCount = 0;
+
         res.segments.forEach(seg => {
+            const hasMatch = !query || seg.text.toLowerCase().includes(query);
+            if (!hasMatch) return;
+            matchCount++;
+
             const div = document.createElement("div");
             div.className = "segment-item";
+            div.dataset.start = seg.start;
+            div.dataset.end = seg.end;
+
             const startFmt = formatTime(seg.start);
             const endFmt = formatTime(seg.end);
 
+            let displayText = escapeHtml(seg.text);
+            if (query) {
+                const regex = new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+                displayText = displayText.replace(regex, '<mark class="search-highlight">$1</mark>');
+            }
+
             div.innerHTML = `
-                <div class="timestamp">${startFmt} - ${endFmt}</div>
-                <div class="segment-text">${escapeHtml(seg.text)}</div>
+                <div class="timestamp" title="Clique para ouvir este trecho">${startFmt} - ${endFmt}</div>
+                <div class="segment-text">${displayText}</div>
             `;
+
+            // Clique no timestamp pula o áudio direto para o ponto inicial!
+            const timeEl = div.querySelector(".timestamp");
+            timeEl.onclick = () => {
+                if (nativeAudio.src) {
+                    nativeAudio.currentTime = seg.start;
+                    nativeAudio.play();
+                    playBtnIcon.innerHTML = AppIcons.get("pause", "ui-icon");
+                }
+            };
+
             transcriptBody.appendChild(div);
         });
+
+        if (matchCount === 0 && query) {
+            transcriptBody.innerHTML = `<div style="text-align: center; color: var(--text-dim); padding: 30px;">Nenhum trecho encontrado para "${escapeHtml(query)}"</div>`;
+        }
     }
 
     function showErrorInView(item) {
-        transcriptFilename.textContent = item.file.name;
+        transcriptFilename.innerHTML = `
+            <span class="card-title-icon">${AppIcons.get("fileText", "ui-icon")}</span>
+            <span>${escapeHtml(item.file.name)}</span>
+        `;
         transcriptMeta.style.display = "none";
         exportActions.style.display = "none";
+        audioPlayerContainer.classList.add("hidden");
+        statsStrip.classList.add("hidden");
+        searchWrapper.classList.add("hidden");
+
         transcriptBody.className = "transcript-body";
         transcriptBody.innerHTML = `
-            <div style="color: var(--danger); padding: 20px; text-align: center;">
+            <div style="color: var(--danger); padding: 30px; text-align: center;">
+                <div style="width: 48px; height: 48px; margin: 0 auto 12px; color: var(--danger);">
+                    ${AppIcons.get("x", "ui-icon ui-icon-xl")}
+                </div>
                 <h4>Falha na transcrição</h4>
-                <p style="margin-top: 8px; font-size: 0.85rem;">${escapeHtml(item.error || 'Erro desconhecido')}</p>
+                <p style="margin-top: 8px; font-size: 0.85rem; color: var(--text-muted);">${escapeHtml(item.error || 'Erro desconhecido')}</p>
             </div>
         `;
     }
 
     function resetTranscriptView() {
-        transcriptFilename.textContent = "Resultado da Transcrição";
+        transcriptFilename.innerHTML = `
+            <span class="card-title-icon">${AppIcons.get("fileText", "ui-icon")}</span>
+            <span>Resultado da Transcrição</span>
+        `;
         transcriptMeta.style.display = "none";
         exportActions.style.display = "none";
+        audioPlayerContainer.classList.add("hidden");
+        statsStrip.classList.add("hidden");
+        searchWrapper.classList.add("hidden");
+
+        if (nativeAudio) {
+            nativeAudio.pause();
+            nativeAudio.src = "";
+        }
+
         transcriptBody.className = "transcript-body empty";
         transcriptBody.innerHTML = `
             <div class="placeholder-state">
-                <span class="placeholder-icon">📄</span>
-                <p>Selecione um arquivo de áudio ou vídeo e clique em "Iniciar Transcrição" para ver o texto com minutagem aqui.</p>
+                <div class="placeholder-icon">${AppIcons.get("fileText", "ui-icon ui-icon-xl")}</div>
+                <p>Selecione um arquivo de áudio ou vídeo e clique em "Iniciar Transcrição" para ver o texto com minutagem interativa aqui.</p>
             </div>
         `;
     }
 
     function formatTime(seconds) {
+        if (isNaN(seconds) || seconds < 0) return "00:00";
         const mins = Math.floor(seconds / 60);
         const secs = Math.floor(seconds % 60);
         return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
     }
 
     function escapeHtml(text) {
+        if (!text) return "";
         const div = document.createElement("div");
         div.textContent = text;
         return div.innerHTML;
