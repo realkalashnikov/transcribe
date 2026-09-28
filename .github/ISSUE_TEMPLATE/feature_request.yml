@@ -1,0 +1,33 @@
+name: 💡 Sugerir uma Nova Funcionalidade (Feature Request)
+description: Compartilhe ideias para novos recursos ou melhorias no Transcriber
+title: "[FEATURE] "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Adoramos sugestões da comunidade! Conte-nos sua ideia para tornar o Transcriber ainda melhor.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Qual problema essa funcionalidade resolveria?
+      description: Uma descrição clara de qual é a necessidade ou limitação atual.
+      placeholder: Atualmente sinto falta de...
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Solução Proposta
+      description: Como você imagina essa funcionalidade funcionando?
+      placeholder: Seria ótimo se houvesse uma opção para...
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternativas Consideradas
+      description: Alguma solução alternativa ou biblioteca que você já avaliou?

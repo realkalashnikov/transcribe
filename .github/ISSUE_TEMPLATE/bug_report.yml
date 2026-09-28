@@ -1,0 +1,82 @@
+name: 🐛 Reportar um Erro (Bug Report)
+description: Crie um relatório de erro para nos ajudar a melhorar o Transcriber
+title: "[BUG] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Obrigado por dedicar um tempo para reportar este problema! Por favor, preencha as informações abaixo com o máximo de detalhes possível.
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Descrição do Problema
+      description: Uma explicação clara e concisa do que aconteceu de errado.
+      placeholder: Ao tentar transcrever um arquivo .m4a no modo local...
+    validations:
+      required: true
+
+  - type: dropdown
+    id: engine
+    attributes:
+      label: Motor e Modo Utilizados
+      description: Qual motor você estava usando quando o erro ocorreu?
+      options:
+        - "Local: Faster-Whisper (CPU)"
+        - "Local: Faster-Whisper (CUDA/GPU)"
+        - "Local: Whisper.cpp"
+        - "Nuvem: Groq API"
+        - "Nuvem: OpenAI API"
+        - "Nuvem: Gemini API"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: model_size
+    attributes:
+      label: Modelo Escolhido
+      options:
+        - "tiny"
+        - "base"
+        - "small"
+        - "medium"
+        - "large-v3"
+        - "large-v3-turbo"
+        - "Outro / Nuvem"
+
+  - type: input
+    id: os
+    attributes:
+      label: Sistema Operacional
+      placeholder: ex: Windows 11, Ubuntu 24.04, macOS Sonoma
+    validations:
+      required: true
+
+  - type: input
+    id: python_version
+    attributes:
+      label: Versão do Python
+      placeholder: ex: Python 3.13.1
+    validations:
+      required: false
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Passos para Reproduzir
+      description: Como reproduzir o problema passo a passo?
+      placeholder: |
+        1. Iniciar o projeto com `python run.py`
+        2. Selecionar modo X
+        3. Arraste o arquivo Y
+        4. Clique em Iniciar Transcrição
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs do Terminal / Console
+      description: Cole aqui as mensagens de erro exibidas no terminal ou no console do navegador.
+      render: shell
