@@ -14,14 +14,15 @@ O formato é baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.
   - Navegação fluida com as setas do teclado `↑` e `↓` com barra azul de seleção ativa e marcadores em diamante `◈`.
   - Confirmação com tecla `Enter` e suporte a atalhos numéricos diretos (`1`, `2`, `3`, `4`).
   - Opção de encerramento em vermelho (`✕ Sair`) e tratamento elegante de `Ctrl+C` e `Esc`.
-  - Implementação pura sem dependências externas, usando `msvcrt` nativo no Windows e modo raw em POSIX.
+  - Implementação pura sem dependências externas, usando `msvcrt` nativo no Windows e modo raw com suporte a modo de aplicação cursor (SS3 / `\x1bOA`, `\x1bOB`) em POSIX.
+  - Proteção contra quebra de linha e desincronização de cursor em janelas de terminal estreitas com dicas e larguras adaptativas.
   - Integração perfeita em `run.py` (acionado automaticamente ao executar sem flags em terminal interativo) e repasse unificado direto em `run.bat`.
 
 ### 🐛 Corrigido
 - **Blindagem do PyAV e Correção no CI GitHub Actions**:
   - Adicionado `av>=11.0.0` explicitamente no `requirements.txt` para assegurar suporte ao argumento `metadata_errors`.
-  - Implementado wrapper defensivo em `av.open` no módulo `app/engine/faster_whisper.py` para capturar `TypeError` relacionado a `metadata_errors` em ambientes legados e realizar fallback automático sem quebras.
-  - Adicionados testes automatizados do CLI Menu (`test_cli_menu.py`) integrados ao pipeline de CI no GitHub Actions.
+  - Implementado wrapper defensivo em `av.open` no módulo `app/engine/faster_whisper.py` para capturar `TypeError` incondicionalmente quando `metadata_errors` for fornecido em ambientes legados e realizar fallback automático sem quebras.
+  - Adicionados testes automatizados abrangentes do CLI Menu e do fallback de `av.open` (`test_cli_menu.py`) cobrindo 16 cenários unitários integrados ao pipeline de CI no GitHub Actions.
 
 ---
 

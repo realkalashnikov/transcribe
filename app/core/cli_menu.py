@@ -68,7 +68,7 @@ def _safe_str(text: str) -> str:
         text.encode(encoding)
         return text
     except (UnicodeEncodeError, LookupError):
-        return (
+        cleaned = (
             text.replace("🗂", "[*]")
             .replace("◈", ">")
             .replace("✕", "x")
@@ -77,6 +77,10 @@ def _safe_str(text: str) -> str:
             .replace("✔", "[OK]")
             .replace("—", "-")
         )
+        try:
+            return cleaned.encode(encoding, errors="replace").decode(encoding)
+        except Exception:
+            return cleaned
 
 
 def _safe_write(text: str):
@@ -134,17 +138,24 @@ def _get_key_posix():
         if ch == "\x1b":
             r, _, _ = select.select([sys.stdin], [], [], 0.05)
             if r:
-                ch2 = sys.stdin.read(1)
-                if ch2 == "[":
-                    ch3 = sys.stdin.read(1)
-                    if ch3 == "A":
-                        return "up"
-                    elif ch3 == "B":
-                        return "down"
-                    elif ch3 == "C":
-                        return "right"
-                    elif ch3 == "D":
-                        return "left"
+                seq = [sys.stdin.read(1)]
+                # Drena bytes restantes da sequência de escape de forma não-bloqueante
+                while True:
+                    r2, _, _ = select.select([sys.stdin], [], [], 0.01)
+                    if r2:
+                        seq.append(sys.stdin.read(1))
+                    else:
+                        break
+                code = "".join(seq)
+                if code in ("[A", "OA", "[1;5A", "[1;2A"):
+                    return "up"
+                elif code in ("[B", "OB", "[1;5B", "[1;2B"):
+                    return "down"
+                elif code in ("[C", "OC"):
+                    return "right"
+                elif code in ("[D", "OD"):
+                    return "left"
+                return None  # Sequência desconhecida (F-keys, PageUp, etc.), ignora com segurança
             return "escape"
         elif ch in ("\r", "\n"):
             return "enter"
@@ -174,7 +185,8 @@ def get_key():
 def _render_menu(selected_idx: int, first_render: bool = False) -> int:
     """Renderiza a interface do menu no console e retorna a quantidade de linhas."""
     term_width = shutil.get_terminal_size(fallback=(80, 24)).columns
-    content_width = min(74, max(60, term_width - 4))
+    max_label_len = max(len(f" {item['icon']} {item['label']}") for item in MENU_ITEMS)
+    content_width = min(max_label_len + 2, max(20, term_width - 2))
 
     lines = []
     # Cabeçalho ciano com sublinhado
@@ -187,8 +199,13 @@ def _render_menu(selected_idx: int, first_render: bool = False) -> int:
         label = item["label"]
 
         if is_selected:
-            # Barra azul ativa com texto destacado (vermelho se sair, verde nos demais)
-            text_color = "\033[44;1;91m" if item["action"] == "exit" else "\033[44;1;92m"
+            # Barra azul ativa com texto destacado
+            if item["action"] == "exit":
+                text_color = "\033[44;1;91m"
+            elif item["action"] == "tunnel":
+                text_color = "\033[44;1;96m"
+            else:
+                text_color = "\033[44;1;92m"
             raw_text = f" {icon} {label}"
             padded_text = f"{raw_text:<{content_width}}"
             lines.append(f"{text_color}{padded_text}\033[0m")
@@ -196,8 +213,13 @@ def _render_menu(selected_idx: int, first_render: bool = False) -> int:
             lines.append(f" {item['color']}{icon} {label}\033[0m")
 
     lines.append("")
-    # Dica de atalhos e navegação
-    lines.append("\033[90m(Use as setas ↑/↓ para navegar, Enter para confirmar ou 1-4 para atalho)\033[0m")
+    # Dica de atalhos e navegação adaptável ao tamanho do terminal para não quebrar linha
+    hint = "(Use as setas ↑/↓ para navegar, Enter para confirmar ou 1-4 para atalho)"
+    if term_width < len(hint) + 2:
+        hint = "(↑/↓ Navegar  •  Enter Confirmar  •  1-4 Atalho  •  Esc Sair)"
+    if term_width < len(hint) + 2:
+        hint = "(↑/↓: Mover | Enter: OK | 1-4: Atalho)"
+    lines.append(f"\033[90m{hint}\033[0m")
 
     if not first_render:
         _safe_write(f"\033[{len(lines)}F")
@@ -236,6 +258,10 @@ def run_interactive_menu():
     if not sys.stdin.isatty():
         return "local"
 
+    exit_idx = next(
+        (i for i, it in enumerate(MENU_ITEMS) if it.get("action") == "exit"),
+        len(MENU_ITEMS) - 1,
+    )
     selected_idx = 0
 
     try:
@@ -250,7 +276,7 @@ def run_interactive_menu():
             try:
                 key = get_key()
             except KeyboardInterrupt:
-                selected_idx = 3  # Sair
+                selected_idx = exit_idx
                 break
 
             if key == "up":
@@ -266,7 +292,7 @@ def run_interactive_menu():
             elif key == "enter":
                 break
             elif key == "escape":
-                selected_idx = 3  # Sair
+                selected_idx = exit_idx
                 break
 
     except Exception:

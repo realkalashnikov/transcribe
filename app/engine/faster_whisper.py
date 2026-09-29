@@ -11,8 +11,8 @@ if not getattr(av, "_is_safe_patched", False):
     def _safe_av_open(*args, **kwargs):
         try:
             return _orig_av_open(*args, **kwargs)
-        except TypeError as e:
-            if "metadata_errors" in str(e) and "metadata_errors" in kwargs:
+        except TypeError:
+            if "metadata_errors" in kwargs:
                 clean_kwargs = dict(kwargs)
                 clean_kwargs.pop("metadata_errors", None)
                 return _orig_av_open(*args, **clean_kwargs)
