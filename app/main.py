@@ -2,7 +2,7 @@ import os
 import uuid
 from typing import Optional
 from pathlib import Path
-from fastapi import FastAPI, UploadFile, File, Form, HTTPException, BackgroundTasks
+from fastapi import FastAPI, UploadFile, File, Form, HTTPException, BackgroundTasks, Response
 from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
@@ -57,6 +57,10 @@ def get_system_info():
         "cloud_providers": CLOUD_PROVIDERS,
         "languages": SUPPORTED_LANGUAGES
     }
+
+@app.get("/favicon.ico", include_in_schema=False)
+async def favicon():
+    return Response(status_code=204)
 
 @app.post("/api/transcribe")
 async def transcribe_file(

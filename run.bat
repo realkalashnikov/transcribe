@@ -3,7 +3,7 @@ setlocal
 title Transcriber
 
 echo ========================================================
-echo   Transcriber - faster-whisper & Cloud APIs
+echo   Transcriber - faster-whisper + Cloud APIs
 echo ========================================================
 echo.
 
