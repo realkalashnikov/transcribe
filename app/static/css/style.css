@@ -978,6 +978,119 @@ label {
     }
 }
 
+/* ============================
+   Story Mode (9:16 vertical)
+   ============================ */
+body.story-mode .control-panel {
+    display: none !important;
+}
+
+body.story-mode .main-grid {
+    grid-template-columns: 1fr;
+}
+
+body.story-mode .app-container {
+    max-width: 100%;
+    padding: 32px 40px;
+}
+
+body.story-mode .app-header {
+    padding-bottom: 28px;
+    margin-bottom: 32px;
+}
+
+body.story-mode .brand h1 {
+    font-size: 1.8rem;
+}
+
+body.story-mode .subtitle {
+    font-size: 1rem;
+}
+
+body.story-mode .brand-icon-wrapper {
+    width: 56px;
+    height: 56px;
+}
+
+body.story-mode .badge {
+    font-size: 0.85rem;
+    padding: 8px 16px;
+}
+
+body.story-mode .card {
+    padding: 28px;
+    margin-bottom: 24px;
+}
+
+body.story-mode .card-title {
+    font-size: 1.1rem;
+}
+
+body.story-mode .panel-tab-btn {
+    font-size: 0.95rem;
+    padding: 10px 18px;
+}
+
+body.story-mode .meta-tags .badge {
+    font-size: 0.8rem;
+}
+
+body.story-mode .stat-value {
+    font-size: 1.3rem;
+}
+
+body.story-mode .stat-label {
+    font-size: 0.78rem;
+}
+
+body.story-mode .segment-text {
+    font-size: 1.05rem;
+    line-height: 1.65;
+}
+
+body.story-mode .segment-time {
+    font-size: 0.82rem;
+}
+
+body.story-mode .search-input {
+    font-size: 0.95rem;
+}
+
+body.story-mode .export-actions .btn {
+    font-size: 0.82rem;
+    padding: 6px 14px;
+}
+
+body.story-mode .queue-card {
+    display: none !important;
+}
+
+/* Story Footer */
+.story-footer {
+    text-align: center;
+    padding: 40px 20px 20px;
+}
+
+.story-footer-line {
+    width: 120px;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--primary), transparent);
+    margin: 0 auto 24px;
+}
+
+.story-footer-text {
+    font-size: 1.15rem;
+    font-weight: 600;
+    color: var(--text-main);
+    letter-spacing: 0.02em;
+    margin-bottom: 8px;
+}
+
+.story-footer-sub {
+    font-size: 0.9rem;
+    color: var(--text-muted);
+}
+
 .hidden {
     display: none !important;
 }

@@ -125,8 +125,16 @@ document.addEventListener("DOMContentLoaded", () => {
         }
 
         if (params.get("story")) {
-            const controlPanel = document.querySelector(".control-panel");
-            if (controlPanel) controlPanel.style.display = "none";
+            document.body.classList.add("story-mode");
+            // Adiciona rodapé com link do GitHub para contexto no Story
+            const footer = document.createElement("div");
+            footer.className = "story-footer";
+            footer.innerHTML = `
+                <div class="story-footer-line"></div>
+                <p class="story-footer-text">🔗 github.com/realkalashnikov/transcribe</p>
+                <p class="story-footer-sub">100% Open-Source • Funciona offline na sua máquina</p>
+            `;
+            document.querySelector(".app-container").appendChild(footer);
         }
 
         if (window.AppIcons) window.AppIcons.renderAll();

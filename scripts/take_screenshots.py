@@ -83,8 +83,8 @@ def main():
         transcription_png = SCREENSHOTS_DIR / "transcription_view.png"
         story_png = SCREENSHOTS_DIR / "story_status.png"
         
-        # 1. 16:9 Feed Format (LinkedIn, Twitter, Facebook Feed) - 1600x900 com proporção perfeita
-        print(f"[3/5] Capturando preview em {preview_png} (16:9 Feed 1600x900)...")
+        # 1. 16:9 Feed Format (LinkedIn, Twitter, Facebook Feed) - 1600x1100 para capturar UI completa
+        print(f"[3/5] Capturando preview em {preview_png} (Feed 1600x1100)...")
         edge_cmd1 = [
             EDGE_PATH,
             "--headless",
@@ -92,7 +92,7 @@ def main():
             "--no-first-run",
             "--no-default-browser-check",
             "--hide-scrollbars",
-            "--window-size=1600,900",
+            "--window-size=1600,1300",
             "--force-device-scale-factor=1.15",
             f"--screenshot={str(preview_png)}",
             "http://127.0.0.1:8008"
@@ -100,8 +100,8 @@ def main():
         subprocess.run(edge_cmd1, check=True)
         print(" -> preview.png capturado!")
 
-        # 2. 16:9 Feed Format com Transcrição ativa e Player
-        print(f"[4/5] Capturando transcrição ativa em {transcription_png} (16:9 Feed 1600x900)...")
+        # 2. Feed Format com Transcrição ativa e Player
+        print(f"[4/5] Capturando transcrição ativa em {transcription_png} (Feed 1600x1100)...")
         edge_cmd2 = [
             EDGE_PATH,
             "--headless",
@@ -109,7 +109,7 @@ def main():
             "--no-first-run",
             "--no-default-browser-check",
             "--hide-scrollbars",
-            "--window-size=1600,900",
+            "--window-size=1600,1100",
             "--force-device-scale-factor=1.15",
             f"--screenshot={str(transcription_png)}",
             "http://127.0.0.1:8008/?demo=1"
@@ -117,8 +117,8 @@ def main():
         subprocess.run(edge_cmd2, check=True)
         print(" -> transcription_view.png capturado!")
 
-        # 3. 9:16 Vertical Format para WhatsApp Status, Instagram Stories e Facebook Stories (1080x1920)
-        print(f"[5/5] Capturando formato vertical Story/Status em {story_png} (9:16 1080x1920)...")
+        # 3. 9:16 Vertical Format para WhatsApp Status, Instagram Stories e Facebook Stories
+        print(f"[5/5] Capturando formato vertical Story/Status em {story_png} (9:16 vertical)...")
         edge_cmd3 = [
             EDGE_PATH,
             "--headless",
@@ -126,8 +126,8 @@ def main():
             "--no-first-run",
             "--no-default-browser-check",
             "--hide-scrollbars",
-            "--window-size=540,960",
-            "--force-device-scale-factor=2.0",
+            "--window-size=720,1280",
+            "--force-device-scale-factor=1.5",
             f"--screenshot={str(story_png)}",
             "http://127.0.0.1:8008/?demo=1&story=1"
         ]
