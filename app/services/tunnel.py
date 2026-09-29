@@ -208,12 +208,12 @@ class TunnelService:
             print(f"  Túnel Nuvem (HTTPS): {pub_url}")
             print(f"  Link Direto Celular: {mobile_url}")
         else:
-            print(f"  Túnel Nuvem (HTTPS): Desativado (use --public ou --share para ativar)")
+            print(f"  Túnel Nuvem (HTTPS): Desativado (use --tunnel ou --share para ativar no PC)")
 
         if settings.is_private and pin:
             print(f"  PIN de Segurança:    {pin}")
         elif settings.is_public:
-            print(f"  Acesso:              Público (Sessões isoladas e efêmeras ativas)")
+            print(f"  Acesso:              Público (Sessões isoladas permanentes)")
 
         print("=" * 65 + "\n")
 

@@ -29,9 +29,9 @@ def parse_args():
     parser.add_argument("--host", type=str, default=settings.host, help="Host do servidor (padrão: 0.0.0.0)")
     parser.add_argument("--mode", type=str, choices=["private", "public", "byok"], default=None, help="Modo da instância (private, public, byok)")
     parser.add_argument("--pin", type=str, default=None, help="PIN de acesso de segurança para modo privado")
-    parser.add_argument("--public", action="store_true", help="Inicia como instância pública com túnel Cloudflare")
+    parser.add_argument("--public", action="store_true", help="Inicia como instância pública (sem túnel obrigatório)")
     parser.add_argument("--share", action="store_true", help="Inicia túnel seguro Cloudflare para acesso remoto / celular")
-    parser.add_argument("--tunnel", action="store_true", help="Inicia túnel Cloudflare")
+    parser.add_argument("--tunnel", action="store_true", help="Inicia túnel Cloudflare opcional")
     parser.add_argument("--no-browser", action="store_true", help="Não abre o navegador automaticamente")
     return parser.parse_args()
 
@@ -48,7 +48,6 @@ if __name__ == "__main__":
 
     if args.public:
         settings.set_mode("public")
-        settings.enable_tunnel = True
     elif args.mode:
         settings.set_mode(args.mode)
 
