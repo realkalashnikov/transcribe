@@ -1,9 +1,9 @@
 @echo off
 setlocal
-title Transcriber
+title Transcribe Studio
 
 echo ========================================================
-echo   Transcriber - faster-whisper + Cloud APIs
+echo   Transcribe Studio - faster-whisper ^& Cloud APIs
 echo ========================================================
 echo.
 
@@ -40,10 +40,30 @@ if %errorlevel% neq 0 (
     echo.
 )
 
-:: 3. Inicia a aplicacao
-echo Iniciando o Transcriber...
-echo O navegador abrira automaticamente em http://localhost:8000
+:: 3. Menu de inicializacao
+echo Escolha o modo de execucao:
 echo.
-python run.py
+echo   [1] Local Pessoal (Apenas neste computador - Padrao)
+echo   [2] Compartilhado / Celular (Tunel Cloudflare HTTPS com PIN)
+echo   [3] Instancia Publica Aberta (Estilo Cobalt, historico efemero)
+echo   [4] Sair
+echo.
+set /p opt="Digite a opcao desejada [1-4] (Padrao: 1): "
+
+if "%opt%"=="2" (
+    echo.
+    echo [MODO] Iniciando com Acesso Remoto seguro para celular...
+    python run.py --share
+) else if "%opt%"=="3" (
+    echo.
+    echo [MODO] Iniciando como Instancia Publica aberta ao mundo...
+    python run.py --public
+) else if "%opt%"=="4" (
+    exit /b 0
+) else (
+    echo.
+    echo [MODO] Iniciando localmente em http://localhost:8000 ...
+    python run.py
+)
 
 pause

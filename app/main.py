@@ -37,6 +37,7 @@ from app.core.config import (
 from app.services.transcriber import TranscriberService
 from app.services.history import HistoryService, sanitize_session_id
 from app.services.cleaner import CleanerService
+from app.services.tunnel import TunnelService
 from app.services.concurrency import ConcurrencyGuard, validate_upload_size, validate_audio_duration
 from app.engine.faster_whisper import get_audio_duration
 from app.middleware.rate_limit import RateLimiterMiddleware
@@ -104,6 +105,11 @@ def get_system_info():
         "instance": settings.to_public_dict(),
         "concurrency": ConcurrencyGuard.get_stats()
     }
+
+@app.get("/api/tunnel/info")
+def get_tunnel_info():
+    """Retorna status do túnel, links de acesso e rede local."""
+    return TunnelService.get_info(port=settings.port)
 
 @app.post("/api/auth/verify")
 async def verify_auth(request: Request):
