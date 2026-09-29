@@ -41,6 +41,12 @@
 - **Detecção de Rede Wi-Fi (LAN)**: Descobre seu IP local automaticamente para uso em rede doméstica com latência zero.
 - **Gravação Direta pelo Microfone do Smartphone**: O HTTPS provido pelo túnel permite gravação de voz diretamente no navegador do celular (Chrome/Safari).
 
+<div align="center">
+
+![Acesso Remoto com QR Code](docs/screenshots/remote_modal.png)
+
+</div>
+
 ### 🤖 API REST Pública v1 (`/api/v1`)
 - Endpoints padronizados para bots de Discord, Telegram, automações e desenvolvedores:
   - `POST /api/v1/transcribe`: Transcrição de arquivos com retornos em JSON, TXT, SRT ou VTT.
@@ -57,18 +63,14 @@
 
 ## 🚀 Como Iniciar
 
-### No Windows (Menu Interativo)
-Dê dois cliques no arquivo:
-```cmd
-run.bat
-```
-Você verá um menu simples:
-```text
-  [1] Local Pessoal (Apenas neste computador - Padrão)
-  [2] Compartilhado / Celular (Túnel Cloudflare HTTPS com PIN)
-  [3] Instância Pública Aberta (Estilo Cobalt, histórico efêmero)
-  [4] Sair
-```
+### Menu Interativo Moderno (CLI com Setas)
+Tanto pelo duplo clique no `run.bat` quanto executando `python run.py`, você tem uma interface interativa de terminal com cores e navegação por setas:
+
+<div align="center">
+
+![Menu Interativo CLI](docs/screenshots/cli_menu.png)
+
+</div>
 
 ### Pela Linha de Comando (CLI)
 ```bash

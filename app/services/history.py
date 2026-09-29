@@ -105,6 +105,26 @@ class HistoryService:
             except Exception:
                 continue
 
+        # Se existir demo_transcription na raiz, inclui como item de demonstração
+        root_demo = HISTORY_DIR / "demo_transcription.json"
+        if root_demo.exists() and not any(it["id"] == "demo_transcription" for it in items):
+            try:
+                with open(root_demo, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                    items.append({
+                        "id": data.get("id"),
+                        "filename": data.get("filename", "Sem nome"),
+                        "saved_at": data.get("saved_at", ""),
+                        "timestamp": data.get("timestamp", 0),
+                        "duration": data.get("duration", 0),
+                        "language": data.get("language", "auto"),
+                        "provider": data.get("provider", "local"),
+                        "model": data.get("model", ""),
+                        "has_audio": bool(data.get("audio_file"))
+                    })
+            except Exception:
+                pass
+
         # Ordena pelo timestamp decrescente
         items.sort(key=lambda x: x.get("timestamp", 0), reverse=True)
         return items
@@ -120,7 +140,14 @@ class HistoryService:
         file_path = target_dir / f"{safe_job}.json"
 
         if not file_path.exists():
-            return None
+            if safe_job == "demo_transcription":
+                root_fallback = HISTORY_DIR / f"{safe_job}.json"
+                if root_fallback.exists():
+                    file_path = root_fallback
+                else:
+                    return None
+            else:
+                return None
 
         try:
             with open(file_path, "r", encoding="utf-8") as f:

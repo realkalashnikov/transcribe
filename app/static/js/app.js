@@ -243,6 +243,10 @@ document.addEventListener("DOMContentLoaded", () => {
             document.querySelector(".app-container").appendChild(footer);
         }
 
+        if (params.get("remote")) {
+            await openRemoteModal();
+        }
+
         if (window.AppIcons) window.AppIcons.renderAll();
     }
 
@@ -888,6 +892,15 @@ document.addEventListener("DOMContentLoaded", () => {
             const resp = await apiRequest("/api/tunnel/info");
             if (!resp.ok) return;
             const data = await resp.json();
+
+            // Simula dados do túnel para captura em demo/screenshot
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.get("demo")) {
+                data.tunnel_active = true;
+                data.public_url = "https://swift-echo-demo.trycloudflare.com";
+                data.requires_pin = true;
+                data.access_pin = "482 109";
+            }
 
             // Link do Túnel Cloudflare
             if (data.tunnel_active && data.public_url) {

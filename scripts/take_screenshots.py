@@ -81,10 +81,12 @@ def main():
     try:
         preview_png = SCREENSHOTS_DIR / "preview.png"
         transcription_png = SCREENSHOTS_DIR / "transcription_view.png"
+        remote_png = SCREENSHOTS_DIR / "remote_modal.png"
         story_png = SCREENSHOTS_DIR / "story_status.png"
+        cli_png = SCREENSHOTS_DIR / "cli_menu.png"
         
-        # 1. 16:9 Feed Format (LinkedIn, Twitter, Facebook Feed) - 1600x1100 para capturar UI completa
-        print(f"[3/5] Capturando preview em {preview_png} (Feed 1600x1100)...")
+        # 1. 16:9 Feed Format - Preview limpo da UI completa
+        print(f"[3/7] Capturando preview em {preview_png} (Feed 1600x1300)...")
         edge_cmd1 = [
             EDGE_PATH,
             "--headless",
@@ -100,8 +102,8 @@ def main():
         subprocess.run(edge_cmd1, check=True)
         print(" -> preview.png capturado!")
 
-        # 2. Feed Format com Transcrição ativa e Player
-        print(f"[4/5] Capturando transcrição ativa em {transcription_png} (Feed 1600x1100)...")
+        # 2. Feed Format com Transcrição ativa e Player de Áudio
+        print(f"[4/7] Capturando transcrição ativa em {transcription_png} (Feed 1600x1200)...")
         edge_cmd2 = [
             EDGE_PATH,
             "--headless",
@@ -109,7 +111,7 @@ def main():
             "--no-first-run",
             "--no-default-browser-check",
             "--hide-scrollbars",
-            "--window-size=1600,1100",
+            "--window-size=1600,1200",
             "--force-device-scale-factor=1.15",
             f"--screenshot={str(transcription_png)}",
             "http://127.0.0.1:8008/?demo=1"
@@ -117,8 +119,25 @@ def main():
         subprocess.run(edge_cmd2, check=True)
         print(" -> transcription_view.png capturado!")
 
-        # 3. 9:16 Vertical Format para WhatsApp Status, Instagram Stories e Facebook Stories
-        print(f"[5/5] Capturando formato vertical Story/Status em {story_png} (9:16 vertical)...")
+        # 3. Feed Format com Modal de Acesso Remoto & QR Code Interativo
+        print(f"[5/7] Capturando modal de acesso remoto em {remote_png} (Feed 1600x1200)...")
+        edge_cmd_remote = [
+            EDGE_PATH,
+            "--headless",
+            "--disable-gpu",
+            "--no-first-run",
+            "--no-default-browser-check",
+            "--hide-scrollbars",
+            "--window-size=1600,1200",
+            "--force-device-scale-factor=1.15",
+            f"--screenshot={str(remote_png)}",
+            "http://127.0.0.1:8008/?demo=1&remote=1"
+        ]
+        subprocess.run(edge_cmd_remote, check=True)
+        print(" -> remote_modal.png capturado!")
+
+        # 4. 9:16 Vertical Format para WhatsApp Status, Instagram Stories e Facebook Stories
+        print(f"[6/7] Capturando formato vertical Story/Status em {story_png} (9:16 vertical)...")
         edge_cmd3 = [
             EDGE_PATH,
             "--headless",
@@ -133,6 +152,172 @@ def main():
         ]
         subprocess.run(edge_cmd3, check=True)
         print(" -> story_status.png capturado com sucesso!")
+
+        # 5. Captura da Janela do Menu CLI Interativo
+        print(f"[7/7] Gerando visual da CLI Interativa em {cli_png}...")
+        cli_html = BASE_DIR / "scripts" / "_cli_mockup.html"
+        cli_html.write_text("""<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  body {
+    margin: 0;
+    padding: 40px;
+    background: #090d16;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    font-family: 'JetBrains Mono', Consolas, 'Courier New', monospace;
+    box-sizing: border-box;
+  }
+  .terminal-window {
+    width: 900px;
+    background: #0d121f;
+    border: 1px solid #1f293d;
+    border-radius: 12px;
+    box-shadow: 0 25px 60px rgba(0, 0, 0, 0.6), 0 0 30px rgba(99, 102, 241, 0.15);
+    overflow: hidden;
+  }
+  .title-bar {
+    background: #111827;
+    padding: 12px 18px;
+    display: flex;
+    align-items: center;
+    border-bottom: 1px solid #1f293d;
+  }
+  .buttons {
+    display: flex;
+    gap: 8px;
+  }
+  .dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+  }
+  .dot-red { background: #ef4444; }
+  .dot-yellow { background: #f59e0b; }
+  .dot-green { background: #10b981; }
+  .title {
+    flex: 1;
+    text-align: center;
+    font-size: 13px;
+    color: #94a3b8;
+    margin-right: 50px;
+    font-weight: 500;
+  }
+  .terminal-body {
+    padding: 32px 36px 40px;
+    font-size: 16px;
+    line-height: 1.8;
+  }
+  .header {
+    color: #06b6d4;
+    font-weight: bold;
+    text-decoration: underline;
+    font-size: 18px;
+    margin-bottom: 24px;
+    display: inline-block;
+  }
+  .menu-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 28px;
+  }
+  .menu-item {
+    padding: 8px 16px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    color: #cbd5e1;
+    transition: all 0.15s ease;
+  }
+  .menu-item.active {
+    background: #1e3a8a;
+    color: #4ade80;
+    font-weight: bold;
+    box-shadow: 0 4px 12px rgba(30, 58, 138, 0.4);
+  }
+  .menu-item .icon {
+    margin-right: 12px;
+    font-size: 15px;
+  }
+  .menu-item.active .icon {
+    color: #4ade80;
+  }
+  .menu-item .exit-icon {
+    color: #ef4444;
+  }
+  .menu-item.exit {
+    color: #f87171;
+  }
+  .hint {
+    color: #64748b;
+    font-size: 13px;
+    margin-top: 10px;
+    border-top: 1px dashed #1f293d;
+    padding-top: 16px;
+  }
+</style>
+</head>
+<body>
+  <div class="terminal-window">
+    <div class="title-bar">
+      <div class="buttons">
+        <div class="dot dot-red"></div>
+        <div class="dot dot-yellow"></div>
+        <div class="dot dot-green"></div>
+      </div>
+      <div class="title">Transcribe Studio — Terminal CLI</div>
+    </div>
+    <div class="terminal-body">
+      <div class="header">🗂 Transcribe Studio — Menu Principal</div>
+      <div class="menu-list">
+        <div class="menu-item active">
+          <span class="icon">◈</span>
+          <span>1. Modo Local Pessoal (Apenas neste computador - Padrão)</span>
+        </div>
+        <div class="menu-item">
+          <span class="icon">◈</span>
+          <span>2. Instância Pública / Amigos (Rede ou VPS com domínio)</span>
+        </div>
+        <div class="menu-item">
+          <span class="icon">◈</span>
+          <span>3. Túnel Cloudflare (Acesso externo rápido sem IP fixo / Celular)</span>
+        </div>
+        <div class="menu-item exit">
+          <span class="icon exit-icon">✕</span>
+          <span>4. Sair</span>
+        </div>
+      </div>
+      <div class="hint">
+        (Use as setas ↑/↓ para navegar, Enter para confirmar ou 1-4 para atalho)
+      </div>
+    </div>
+  </div>
+</body>
+</html>""", encoding="utf-8")
+        
+        edge_cmd_cli = [
+            EDGE_PATH,
+            "--headless",
+            "--disable-gpu",
+            "--no-first-run",
+            "--no-default-browser-check",
+            "--hide-scrollbars",
+            "--window-size=1060,560",
+            "--force-device-scale-factor=1.2",
+            f"--screenshot={str(cli_png)}",
+            f"file:///{str(cli_html).replace('\\\\', '/')}"
+        ]
+        subprocess.run(edge_cmd_cli, check=True)
+        try:
+            cli_html.unlink()
+        except Exception:
+            pass
+        print(" -> cli_menu.png capturado com sucesso!")
 
 
     finally:
