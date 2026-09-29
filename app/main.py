@@ -42,6 +42,7 @@ from app.services.concurrency import ConcurrencyGuard, validate_upload_size, val
 from app.engine.faster_whisper import get_audio_duration
 from app.middleware.rate_limit import RateLimiterMiddleware
 from app.middleware.auth import AuthMiddleware, is_pin_locked, record_pin_failure, reset_pin_failures
+from app.api.v1 import api_v1_router
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -74,6 +75,9 @@ app.add_middleware(
 STATIC_DIR = BASE_DIR / "app" / "static"
 if STATIC_DIR.exists():
     app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
+
+# Roteador da API REST v1
+app.include_router(api_v1_router)
 
 def resolve_session_id(x_session_id: Optional[str], request: Request) -> Optional[str]:
     """Obtém e valida o session_id de headers ou cookies."""

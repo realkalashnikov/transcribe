@@ -143,10 +143,52 @@ def test_concurrency_guard():
     ConcurrencyGuard.release()
     print(" -> ConcurrencyGuard validado com sucesso!")
 
+def test_api_v1():
+    print("[6/6] Testando API REST v1 e endpoint de túnel...")
+    from test_app import generate_test_wav
+    test_wav = generate_test_wav("test_sample_v1.wav", duration=1.0)
+    client = TestClient(app)
+
+    try:
+        # 1. Status
+        r_status = client.get("/api/v1/status")
+        assert r_status.status_code == 200
+        assert r_status.json()["status"] == "online"
+
+        # 2. Info
+        r_info = client.get("/api/v1/info")
+        assert r_info.status_code == 200
+        assert "limits" in r_info.json()
+        assert "engines" in r_info.json()
+
+        # 3. Tunnel Info
+        r_tunnel = client.get("/api/tunnel/info")
+        assert r_tunnel.status_code == 200
+        assert "lan_url" in r_tunnel.json()
+
+        # 4. Transcribe v1
+        with open(test_wav, "rb") as f:
+            r_tx = client.post(
+                "/api/v1/transcribe",
+                files={"file": ("test.wav", f, "audio/wav")},
+                data={"provider": "faster-whisper", "model": "tiny", "response_format": "json"}
+            )
+        assert r_tx.status_code == 200, f"Erro na API v1: {r_tx.text}"
+        data = r_tx.json()
+        assert "text" in data
+        assert "segments" in data
+
+    finally:
+        if os.path.exists(test_wav):
+            os.remove(test_wav)
+
+    print(" -> API REST v1 validada com sucesso!")
+
 if __name__ == "__main__":
     test_session_isolation()
     test_auth_middleware()
     test_rate_limiting()
     test_cleaner_service()
     test_concurrency_guard()
-    print("\n[SUCESSO] TODOS OS TESTES DE SEGURANÇA E ISOLAMENTO PASSARAM!")
+    test_api_v1()
+    print("\n[SUCESSO] TODOS OS TESTES DE SEGURANÇA, API E ISOLAMENTO PASSARAM!")
