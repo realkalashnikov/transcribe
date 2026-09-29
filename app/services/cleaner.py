@@ -39,14 +39,14 @@ class CleanerService:
     @staticmethod
     def clean_expired_history(max_age_minutes: Optional[int] = None) -> int:
         """
-        Em instâncias públicas ou byok, expira e remove transcrições e áudios
-        antigos para poupar espaço em disco e garantir privacidade dos usuários.
+        Histórico e áudios são persistentes permanentemente no disco.
+        A expiração automática foi desativada. Limpeza de histórico ocorre apenas se
+        um valor de max_age_minutes > 0 for explicitamente fornecido.
         """
-        if not settings.is_public and max_age_minutes is None:
-            # Em modo privado, não remove histórico a menos que explicitamente solicitado
+        expire_mins = max_age_minutes if max_age_minutes is not None else settings.cleanup_expire_minutes
+        if not expire_mins or expire_mins <= 0:
             return 0
 
-        expire_mins = max_age_minutes or settings.cleanup_expire_minutes
         max_age_seconds = expire_mins * 60
         now = time.time()
         removed = 0
@@ -54,7 +54,7 @@ class CleanerService:
         if not HISTORY_DIR.exists():
             return 0
 
-        # Limpa exclusivamente subpastas de sessões efêmeras (preservando o histórico permanente do host na raiz)
+        # Limpa subpastas de sessões se explicitamente requisitado via max_age_minutes
         for session_dir in HISTORY_DIR.iterdir():
             if not session_dir.is_dir():
                 continue
@@ -85,7 +85,7 @@ class CleanerService:
 
     @classmethod
     def clean_all(cls) -> Dict[str, int]:
-        """Executa varredura completa de limpeza."""
+        """Executa varredura de limpeza de uploads temporários (preserva histórico permanentemente)."""
         uploads_removed = cls.clean_uploads()
         history_removed = cls.clean_expired_history()
         return {
@@ -96,13 +96,13 @@ class CleanerService:
 
     @classmethod
     def _run_loop(cls):
-        """Loop contínuo em segundo plano."""
-        print(f"[Cleaner] Auto-Cleaner iniciado (intervalo: {settings.cleanup_interval_seconds}s, expiração: {settings.cleanup_expire_minutes}min em modo público).")
+        """Loop contínuo em segundo plano para limpeza de uploads temporários."""
+        print(f"[Cleaner] Auto-Cleaner iniciado (limpeza de uploads a cada {settings.cleanup_interval_seconds}s; histórico permanente ativo).")
         while not cls._stop_event.is_set():
             try:
                 stats = cls.clean_all()
-                if stats["total_removed"] > 0:
-                    print(f"[Cleaner] Varredura periódica: {stats['total_removed']} arquivos temporários expirados removidos.")
+                if stats["uploads_removed"] > 0:
+                    print(f"[Cleaner] Varredura periódica: {stats['uploads_removed']} uploads temporários esquecidos removidos.")
             except Exception as e:
                 print(f"[Cleaner] Erro no ciclo de limpeza: {e}")
 

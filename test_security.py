@@ -13,10 +13,10 @@ from app.services.concurrency import ConcurrencyGuard
 from app.main import app
 
 def test_session_isolation():
-    print("[1/9] Testando isolamento de sessões (público vs privado)...")
+    print("[1/9] Testando isolamento de sessões silencioso (Zero Burocracia)...")
     original_mode = settings.instance_mode
     
-    # 1. Modo Público: isolamento estrito
+    # 1. Modo Público: isolamento estrito entre usuários
     settings.instance_mode = "public"
     session_a = f"user_a_{uuid.uuid4().hex[:8]}"
     session_b = f"user_b_{uuid.uuid4().hex[:8]}"
@@ -48,34 +48,55 @@ def test_session_isolation():
 
         # Get direto isolado
         assert HistoryService.get(job_a, session_id=session_a) is not None
-        assert HistoryService.get(job_b, session_id=session_a) is None, "Sessão A não pode ler job B em modo público"
+        assert HistoryService.get(job_b, session_id=session_a) is None, "Sessão A não pode ler job B"
+
+        # Sessão B só pode ver B
+        items_b = HistoryService.list_all(session_id=session_b)
+        assert any(it["id"] == job_b for it in items_b), "Job B deve estar na sessão B"
+        assert not any(it["id"] == job_a for it in items_b), "Job A NÃO deve vazar para a sessão B"
 
     finally:
         HistoryService.delete(job_a, session_id=session_a)
         HistoryService.delete(job_b, session_id=session_b)
         settings.instance_mode = original_mode
 
-    # 2. Modo Privado: histórico unificado para o proprietário da instância
+    # 2. Modo Privado / Compartilhado: cada dispositivo/amigo mantém seu histórico isolado
     settings.instance_mode = "private"
-    job_owner = f"job_owner_{uuid.uuid4().hex[:8]}"
     session_device1 = f"dev1_{uuid.uuid4().hex[:8]}"
     session_device2 = f"dev2_{uuid.uuid4().hex[:8]}"
+    job_dev1 = f"job_dev1_{uuid.uuid4().hex[:8]}"
+    job_dev2 = f"job_dev2_{uuid.uuid4().hex[:8]}"
 
     try:
         HistoryService.save(
-            job_id=job_owner,
-            filename="owner_recording.mp3",
-            result_dict={"text": "Gravação do host", "language": "pt", "duration": 5.0},
+            job_id=job_dev1,
+            filename="dev1_recording.mp3",
+            result_dict={"text": "Gravação privada do device 1", "language": "pt", "duration": 5.0},
             session_id=session_device1
         )
-        # Dispositivo 2 do proprietário deve ver o item
+        HistoryService.save(
+            job_id=job_dev2,
+            filename="dev2_recording.mp3",
+            result_dict={"text": "Gravação privada do device 2", "language": "en", "duration": 8.0},
+            session_id=session_device2
+        )
+
+        # Dispositivo 2 NÃO deve ver o item do Dispositivo 1
         items_dev2 = HistoryService.list_all(session_id=session_device2)
-        assert any(it["id"] == job_owner for it in items_dev2), "Proprietário deve ver seu histórico em qualquer dispositivo"
+        assert any(it["id"] == job_dev2 for it in items_dev2), "Dispositivo 2 deve ver seu próprio histórico"
+        assert not any(it["id"] == job_dev1 for it in items_dev2), "Dispositivo 2 NÃO deve ver histórico do dispositivo 1"
+        assert HistoryService.get(job_dev1, session_id=session_device2) is None, "Dispositivo 2 não pode ler gravação do dispositivo 1"
+
+        # Dispositivo 1 só vê seu próprio histórico
+        items_dev1 = HistoryService.list_all(session_id=session_device1)
+        assert any(it["id"] == job_dev1 for it in items_dev1), "Dispositivo 1 deve ver seu próprio histórico"
+        assert not any(it["id"] == job_dev2 for it in items_dev1), "Dispositivo 1 NÃO deve ver histórico do dispositivo 2"
     finally:
-        HistoryService.delete(job_owner)
+        HistoryService.delete(job_dev1, session_id=session_device1)
+        HistoryService.delete(job_dev2, session_id=session_device2)
         settings.instance_mode = original_mode
 
-    print(" -> Isolamento de sessão público e unificação privada validados com sucesso!")
+    print(" -> Isolamento estrito de sessões por pessoa/dispositivo validado com sucesso!")
 
 def test_job_id_sanitization():
     print("[2/9] Testando sanitização de Job ID e mitigação de Glob/Path Traversal...")
@@ -178,45 +199,60 @@ def test_rate_limiting_anti_evasion():
     print(" -> Rate Limiter anti-evasão validado com sucesso!")
 
 def test_cleaner_service_preservation():
-    print("[5/9] Testando CleanerService (limpeza efêmera com preservação da raiz)...")
+    print("[5/9] Testando CleanerService (persistência permanente de histórico e limpeza de uploads)...")
     original_mode = settings.instance_mode
     settings.instance_mode = "public"
 
-    try:
-        # 1. Cria arquivo de host na raiz de HISTORY_DIR (mtime antigo)
-        host_file = HISTORY_DIR / "host_permanent_backup.json"
-        with open(host_file, "w") as f:
-            f.write(json.dumps({"text": "Historico permanente do host"}))
-        old_time = time.time() - (120 * 60) # 2 horas atrás
-        os.utime(host_file, (old_time, old_time))
+    session_file = None
+    session_dir = None
+    temp_upload = None
 
-        # 2. Cria sessão efêmera pública expirada
-        session_id = f"ephemeral_{uuid.uuid4().hex[:8]}"
+    try:
+        # 1. Cria histórico do usuário (simula arquivo criado há 2 horas)
+        session_id = f"user_perm_{uuid.uuid4().hex[:8]}"
         session_dir = HISTORY_DIR / session_id
         session_dir.mkdir(parents=True, exist_ok=True)
-        session_file = session_dir / "ephemeral_audio.mp3"
+        session_file = session_dir / "user_audio.mp3"
         with open(session_file, "w") as f:
-            f.write("audio efemero")
+            f.write("audio persistente do usuario")
+        old_time = time.time() - (120 * 60) # 2 horas atrás
         os.utime(session_file, (old_time, old_time))
 
-        # Executa limpeza de sessões com mais de 60 min
-        removed = CleanerService.clean_expired_history(max_age_minutes=60)
-        assert removed >= 1, "Cleaner deve remover arquivo da sessão efêmera expirada"
+        # 2. Cria upload temporário antigo em UPLOAD_DIR
+        temp_upload = UPLOAD_DIR / f"temp_{uuid.uuid4().hex[:8]}.tmp"
+        with open(temp_upload, "w") as f:
+            f.write("upload temporario esquecido")
+        os.utime(temp_upload, (old_time, old_time))
 
-        # Arquivo da sessão efêmera deve sumir
-        assert not session_file.exists(), "Arquivo da sessão efêmera deve ter sido deletado"
-        # Diretório da sessão vazia deve ter sido removido
-        assert not session_dir.exists(), "Diretório vazio da sessão deve ter sido removido"
+        # 3. Executa varredura padrão periódica (clean_all)
+        stats = CleanerService.clean_all()
 
-        # Arquivo de host permanente na raiz NUNCA deve ser removido
-        assert host_file.exists(), "Histórico permanente do host na raiz NÃO pode ser deletado pelo cleaner efêmero"
+        # O upload temporário órfão DEVE ter sido removido
+        assert not temp_upload.exists(), "Uploads temporários antigos devem ser removidos pelo cleaner"
+        assert stats["uploads_removed"] >= 1
+
+        # O histórico do usuário DEVE permanecer intacto (persistência permanente sem auto-exclusão após 1 hora)
+        assert session_file.exists(), "Histórico e áudios do usuário devem ser preservados permanentemente"
+        assert stats["history_removed"] == 0, "clean_all nunca deve auto-excluir histórico de usuários"
+
+        # 4. Limpeza manual explícita com max_age_minutes > 0 (manutenção manual) ainda funciona
+        manual_removed = CleanerService.clean_expired_history(max_age_minutes=60)
+        assert manual_removed >= 1, "Limpeza manual explícita com max_age_minutes deve funcionar quando invocada"
+        assert not session_file.exists(), "Arquivo deve ser removido após chamada explícita de limpeza manual"
 
     finally:
-        if host_file.exists():
-            host_file.unlink()
+        if temp_upload and temp_upload.exists():
+            temp_upload.unlink()
+        if session_file and session_file.exists():
+            session_file.unlink()
+        if session_dir and session_dir.exists():
+            try:
+                session_dir.rmdir()
+            except Exception:
+                pass
         settings.instance_mode = original_mode
 
-    print(" -> Preservação de dados do host e limpeza efêmera validadas com sucesso!")
+    print(" -> Persistência permanente de histórico e limpeza de uploads validadas com sucesso!")
 
 def test_upload_security():
     print("[6/9] Testando segurança no upload (arquivo 0 bytes e path traversal)...")

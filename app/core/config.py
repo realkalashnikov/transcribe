@@ -66,8 +66,8 @@ class Settings:
         self.rate_limit_per_minute: int = int(os.getenv("RATE_LIMIT_PER_MINUTE", "30"))
         self.transcribe_rate_limit_per_minute: int = int(os.getenv("TRANSCRIBE_RATE_LIMIT_PER_MINUTE", "5"))
 
-        # Limpeza Efêmera
-        self.cleanup_expire_minutes: int = int(os.getenv("CLEANUP_EXPIRE_MINUTES", "60"))
+        # Limpeza Periódica de Uploads (Histórico é permanente por padrão)
+        self.cleanup_expire_minutes: int = int(os.getenv("CLEANUP_EXPIRE_MINUTES", "0"))
         self.cleanup_interval_seconds: int = int(os.getenv("CLEANUP_INTERVAL_SECONDS", "300"))
 
         # Host e Porta
@@ -109,7 +109,7 @@ class Settings:
             "max_upload_size_mb": self.max_upload_size_mb,
             "max_concurrent_jobs": self.max_concurrent_jobs,
             "rate_limit_per_minute": self.rate_limit_per_minute,
-            "cleanup_expire_minutes": self.cleanup_expire_minutes if self.is_public else None
+            "cleanup_expire_minutes": self.cleanup_expire_minutes if self.cleanup_expire_minutes > 0 else None
         }
 
 settings = Settings()

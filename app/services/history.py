@@ -28,18 +28,15 @@ def sanitize_job_id(job_id: Optional[str]) -> Optional[str]:
 
 def get_session_dir(session_id: Optional[str] = None) -> Path:
     """
-    Retorna o diretório de histórico correspondente:
-    - Modo privado: unificado na raiz HISTORY_DIR para o proprietário da instância.
-    - Modo público / BYOK: particionado estritamente por sessão efêmera.
+    Retorna o diretório de histórico correspondente (Opção A - Zero Burocracia):
+    - Cada navegador/dispositivo recebe sua própria pasta isolada e permanente (HISTORY_DIR / safe_session).
+    - Se nenhum session_id for informado, utiliza a pasta padrão raiz HISTORY_DIR.
     """
-    if not settings.is_public:
-        target_dir = HISTORY_DIR
+    safe_session = sanitize_session_id(session_id)
+    if safe_session:
+        target_dir = HISTORY_DIR / safe_session
     else:
-        safe_session = sanitize_session_id(session_id)
-        if safe_session:
-            target_dir = HISTORY_DIR / safe_session
-        else:
-            target_dir = HISTORY_DIR / "_anonymous"
+        target_dir = HISTORY_DIR
     target_dir.mkdir(parents=True, exist_ok=True)
     return target_dir
 
@@ -121,12 +118,6 @@ class HistoryService:
 
         target_dir = get_session_dir(session_id)
         file_path = target_dir / f"{safe_job}.json"
-        
-        # Se não achou na sessão e o modo for privado (não público), tenta na raiz
-        if not file_path.exists() and not settings.is_public and target_dir != HISTORY_DIR:
-            fallback = HISTORY_DIR / f"{safe_job}.json"
-            if fallback.exists():
-                file_path = fallback
 
         if not file_path.exists():
             return None
@@ -152,22 +143,11 @@ class HistoryService:
             p = target_dir / safe_audio_name
             if p.exists():
                 return p
-            # Fallback se for privado
-            if not settings.is_public:
-                fallback_p = HISTORY_DIR / safe_audio_name
-                if fallback_p.exists():
-                    return fallback_p
 
         # Busca por extensão dentro do target_dir com safe_job estrito (sem wildcard injection)
         for candidate in target_dir.glob(f"{safe_job}.*"):
             if candidate.suffix.lower() != ".json":
                 return candidate
-
-        # Fallback na raiz apenas se for privado
-        if not settings.is_public and target_dir != HISTORY_DIR:
-            for candidate in HISTORY_DIR.glob(f"{safe_job}.*"):
-                if candidate.suffix.lower() != ".json":
-                    return candidate
 
         return None
 
@@ -186,13 +166,5 @@ class HistoryService:
                 success = True
             except Exception:
                 pass
-
-        if not success and not settings.is_public and target_dir != HISTORY_DIR:
-            for p in HISTORY_DIR.glob(f"{safe_job}.*"):
-                try:
-                    os.remove(p)
-                    success = True
-                except Exception:
-                    pass
 
         return success
