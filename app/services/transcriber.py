@@ -36,7 +36,8 @@ class TranscriberService:
         language: Optional[str] = None,
         task: str = "transcribe",
         api_key: Optional[str] = None,
-        original_filename: Optional[str] = None
+        original_filename: Optional[str] = None,
+        session_id: Optional[str] = None
     ) -> TranscriptionResult:
         _JOBS[job_id] = {
             "id": job_id,
@@ -107,7 +108,7 @@ class TranscriberService:
 
             # Persiste no disco (JSON e arquivo de áudio) para nunca perder após reiniciar o servidor
             fname = original_filename or os.path.basename(file_path)
-            HistoryService.save(job_id=job_id, filename=fname, result_dict=result_dict, audio_path=file_path)
+            HistoryService.save(job_id=job_id, filename=fname, result_dict=result_dict, audio_path=file_path, session_id=session_id)
 
             return result
 
