@@ -21,11 +21,25 @@
                     <p class="subtitle">Transcrição rápida e precisa • Local (faster-whisper / whisper.cpp) ou Nuvem (Groq/OpenAI/Gemini)</p>
                 </div>
             </div>
-            <div class="header-badges">
-                <span id="hardware-badge" class="badge badge-cpu">
-                    <span data-icon="cpu" data-icon-class="ui-icon ui-icon-sm"></span>
-                    <span id="hardware-text">Detectando Hardware...</span>
-                </span>
+            <div class="header-actions">
+                <div class="header-badges">
+                    <span id="hardware-badge" class="badge badge-cpu">
+                        <span data-icon="cpu" data-icon-class="ui-icon ui-icon-sm"></span>
+                        <span id="hardware-text">Detectando Hardware...</span>
+                    </span>
+                    <span id="instance-badge" class="badge badge-private">
+                        <span data-icon="shield" data-icon-class="ui-icon ui-icon-sm"></span>
+                        <span id="instance-text">Modo Local</span>
+                    </span>
+                    <span id="limits-badge" class="badge badge-limits hidden">
+                        <span data-icon="clock" data-icon-class="ui-icon ui-icon-sm"></span>
+                        <span id="limits-text">Máx 5 min</span>
+                    </span>
+                </div>
+                <button type="button" id="remote-btn" class="btn btn-outline btn-remote">
+                    <span data-icon="smartphone" data-icon-class="ui-icon ui-icon-sm"></span>
+                    <span>Acesso Remoto / Celular</span>
+                </button>
             </div>
         </header>
 
@@ -314,11 +328,106 @@
         </main>
     </div>
 
+    <!-- Modal de Acesso Remoto & Celular -->
+    <div id="remote-modal" class="modal-overlay hidden">
+        <div class="modal-card">
+            <div class="modal-header">
+                <div class="modal-title">
+                    <span data-icon="smartphone" data-icon-class="ui-icon ui-icon-md"></span>
+                    <h3>Acesso Remoto & Celular</h3>
+                </div>
+                <button type="button" class="modal-close-btn" id="remote-modal-close" title="Fechar">
+                    <span data-icon="x" data-icon-class="ui-icon"></span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="remote-tabs">
+                    <button type="button" class="remote-tab-btn active" id="tab-remote-internet">
+                        <span data-icon="globe" data-icon-class="ui-icon ui-icon-sm"></span> Internet (Túnel HTTPS)
+                    </button>
+                    <button type="button" class="remote-tab-btn" id="tab-remote-lan">
+                        <span data-icon="wifi" data-icon-class="ui-icon ui-icon-sm"></span> Rede Wi-Fi (Local)
+                    </button>
+                </div>
+
+                <!-- Conteúdo Tab Internet -->
+                <div id="remote-content-internet" class="remote-tab-content">
+                    <div id="tunnel-active-box">
+                        <p class="remote-desc">Escaneie o QR Code com a câmera do celular para transcrever diretamente pelo smartphone via conexão criptografada HTTPS:</p>
+                        <div class="qr-wrapper" id="qr-container-public">
+                            <!-- SVG QR Code renderizado via JS -->
+                        </div>
+                        <div class="remote-link-row">
+                            <input type="text" id="tunnel-url-input" class="form-control" readonly>
+                            <button type="button" class="btn btn-outline" id="copy-tunnel-link-btn" title="Copiar link">
+                                <span data-icon="copy" data-icon-class="ui-icon ui-icon-sm"></span> Copiar
+                            </button>
+                        </div>
+                        <div id="pin-display-box" class="pin-box hidden">
+                            <span class="pin-label">PIN de Segurança:</span>
+                            <strong id="display-pin-code" class="pin-code">------</strong>
+                            <button type="button" class="btn-text btn-sm" id="copy-pin-btn">Copiar PIN</button>
+                        </div>
+                    </div>
+                    <div id="tunnel-inactive-box" class="hidden">
+                        <div class="empty-state-small">
+                            <span data-icon="cloud" data-icon-class="ui-icon ui-icon-lg"></span>
+                            <h4>Túnel Público Desativado</h4>
+                            <p>Para liberar acesso seguro pela internet com HTTPS válido no celular, inicie o servidor com:</p>
+                            <code>python run.py --share</code> ou <code>python run.py --public</code>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Conteúdo Tab Wi-Fi -->
+                <div id="remote-content-lan" class="remote-tab-content hidden">
+                    <p class="remote-desc">Acesso direto dentro da mesma rede Wi-Fi doméstica ou de escritório (latência zero):</p>
+                    <div class="qr-wrapper" id="qr-container-lan">
+                        <!-- SVG QR Code LAN -->
+                    </div>
+                    <div class="remote-link-row">
+                        <input type="text" id="lan-url-input" class="form-control" readonly>
+                        <button type="button" class="btn btn-outline" id="copy-lan-link-btn" title="Copiar link">
+                            <span data-icon="copy" data-icon-class="ui-icon ui-icon-sm"></span> Copiar
+                        </button>
+                    </div>
+                    <span class="help-text">Dica: Seu celular precisa estar conectado no mesmo Wi-Fi deste computador.</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Autenticação por PIN -->
+    <div id="auth-modal" class="modal-overlay hidden">
+        <div class="modal-card modal-auth">
+            <div class="modal-header modal-header-center">
+                <div class="auth-icon-circle">
+                    <span data-icon="lock" data-icon-class="ui-icon ui-icon-lg"></span>
+                </div>
+                <h3>Instância Protegida</h3>
+                <p class="modal-subtitle">Insira o PIN de 6 dígitos para acessar o Transcribe Studio nesta máquina.</p>
+            </div>
+            <div class="modal-body">
+                <form id="auth-form" onsubmit="return false;">
+                    <div class="form-group">
+                        <input type="password" id="auth-pin-input" class="form-control auth-pin-field" placeholder="Digite o PIN de 6 dígitos" maxlength="12" autofocus autocomplete="one-time-code">
+                    </div>
+                    <div id="auth-error-msg" class="auth-error hidden"></div>
+                    <button type="submit" id="auth-submit-btn" class="btn btn-primary btn-block">
+                        <span data-icon="shield" data-icon-class="ui-icon ui-icon-sm"></span>
+                        <span>Desbloquear Acesso</span>
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
     <!-- Container de Toasts -->
     <div id="toast-container" class="toast-container"></div>
 
     <!-- Scripts -->
     <script src="/static/js/icons.js"></script>
+    <script src="/static/js/qrcode.js"></script>
     <script src="/static/js/app.js"></script>
 </body>
 </html>

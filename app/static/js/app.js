@@ -22,6 +22,37 @@ document.addEventListener("DOMContentLoaded", () => {
     const cloudSettings = document.getElementById("cloud-settings");
     const hardwareBadge = document.getElementById("hardware-badge");
     const hardwareText = document.getElementById("hardware-text");
+    const instanceBadge = document.getElementById("instance-badge");
+    const instanceText = document.getElementById("instance-text");
+    const limitsBadge = document.getElementById("limits-badge");
+    const limitsText = document.getElementById("limits-text");
+    const remoteBtn = document.getElementById("remote-btn");
+
+    // Modal de Acesso Remoto
+    const remoteModal = document.getElementById("remote-modal");
+    const remoteModalClose = document.getElementById("remote-modal-close");
+    const tabRemoteInternet = document.getElementById("tab-remote-internet");
+    const tabRemoteLan = document.getElementById("tab-remote-lan");
+    const remoteContentInternet = document.getElementById("remote-content-internet");
+    const remoteContentLan = document.getElementById("remote-content-lan");
+    const tunnelActiveBox = document.getElementById("tunnel-active-box");
+    const tunnelInactiveBox = document.getElementById("tunnel-inactive-box");
+    const tunnelUrlInput = document.getElementById("tunnel-url-input");
+    const lanUrlInput = document.getElementById("lan-url-input");
+    const copyTunnelLinkBtn = document.getElementById("copy-tunnel-link-btn");
+    const copyLanLinkBtn = document.getElementById("copy-lan-link-btn");
+    const pinDisplayBox = document.getElementById("pin-display-box");
+    const displayPinCode = document.getElementById("display-pin-code");
+    const copyPinBtn = document.getElementById("copy-pin-btn");
+    const qrContainerPublic = document.getElementById("qr-container-public");
+    const qrContainerLan = document.getElementById("qr-container-lan");
+
+    // Modal de Autenticação por PIN
+    const authModal = document.getElementById("auth-modal");
+    const authForm = document.getElementById("auth-form");
+    const authPinInput = document.getElementById("auth-pin-input");
+    const authSubmitBtn = document.getElementById("auth-submit-btn");
+    const authErrorMsg = document.getElementById("auth-error-msg");
 
     const localEngineSelect = document.getElementById("local-engine");
     const localModelSelect = document.getElementById("local-model");
@@ -92,6 +123,67 @@ document.addEventListener("DOMContentLoaded", () => {
     const downloadVtt = document.getElementById("download-vtt");
     const downloadJson = document.getElementById("download-json");
 
+    // Gerenciamento de Sessão e Autenticação
+    function getSessionId() {
+        let sid = localStorage.getItem("transcribe_session_id");
+        if (!sid || sid.length < 8) {
+            sid = "sess_" + (crypto.randomUUID ? crypto.randomUUID().replace(/-/g, "") : Math.random().toString(36).substring(2) + Date.now().toString(36));
+            localStorage.setItem("transcribe_session_id", sid);
+        }
+        return sid;
+    }
+
+    function getAccessPin() {
+        return localStorage.getItem("transcribe_access_pin") || "";
+    }
+
+    async function apiRequest(url, options = {}) {
+        options.headers = options.headers || {};
+        if (options.headers instanceof Headers) {
+            options.headers.set("X-Session-ID", getSessionId());
+            const pin = getAccessPin();
+            if (pin) options.headers.set("X-Access-PIN", pin);
+        } else {
+            options.headers["X-Session-ID"] = getSessionId();
+            const pin = getAccessPin();
+            if (pin) options.headers["X-Access-PIN"] = pin;
+        }
+
+        const resp = await fetch(url, options);
+
+        if (resp.status === 401) {
+            openAuthModal();
+            throw new Error("PIN de acesso obrigatório ou incorreto.");
+        } else if (resp.status === 429) {
+            let errData = {};
+            try { errData = await resp.clone().json(); } catch(e) {}
+            showToast(errData.detail || "Limite de requisições excedido. Aguarde alguns instantes.");
+        }
+
+        return resp;
+    }
+
+    async function verifyAndSavePin(pin) {
+        try {
+            const resp = await fetch("/api/auth/verify", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ pin: pin })
+            });
+            if (resp.ok) {
+                localStorage.setItem("transcribe_access_pin", pin);
+                showToast("Autenticado com sucesso via PIN!");
+                return true;
+            } else {
+                const err = await resp.json();
+                showToast(err.detail || "PIN incorreto.");
+                return false;
+            }
+        } catch (e) {
+            return false;
+        }
+    }
+
     // Inicialização
     init();
 
@@ -104,12 +196,24 @@ document.addEventListener("DOMContentLoaded", () => {
         setupActions();
         setupAudioPlayer();
         setupSearch();
+        setupRemoteModal();
+        setupAuthModal();
+
+        // Checa se há PIN na URL para login automático com 1 toque
+        const params = new URLSearchParams(window.location.search);
+        const pinFromUrl = params.get("pin");
+        if (pinFromUrl) {
+            await verifyAndSavePin(pinFromUrl);
+            params.delete("pin");
+            const cleanUrl = window.location.pathname + (params.toString() ? '?' + params.toString() : '');
+            window.history.replaceState({}, document.title, cleanUrl);
+        }
+
         await loadSystemInfo();
         await loadHistory();
         loadSavedApiKeys();
         
         // Auto-carrega demo se solicitado via query param (para screenshots e previews)
-        const params = new URLSearchParams(window.location.search);
         if (params.get("demo")) {
             const targetId = state.history.some(h => h.id === "demo_transcription") ? "demo_transcription" : (state.history.length > 0 ? state.history[0].id : null);
             if (targetId) {
@@ -143,7 +247,7 @@ document.addEventListener("DOMContentLoaded", () => {
     // Carrega informações do servidor
     async function loadSystemInfo() {
         try {
-            const resp = await fetch("/api/info");
+            const resp = await apiRequest("/api/info");
             const data = await resp.json();
 
             // Atualiza Hardware Badge
@@ -155,6 +259,34 @@ document.addEventListener("DOMContentLoaded", () => {
                 hardwareText.textContent = "Modo CPU (int8 otimizado)";
                 hardwareBadge.className = "badge badge-cpu";
                 hardwareBadge.querySelector("[data-icon]").innerHTML = AppIcons.get("cpu", "ui-icon ui-icon-sm");
+            }
+
+            // Atualiza Badges da Instância
+            const inst = data.instance || {};
+            if (instanceBadge && instanceText) {
+                if (inst.instance_mode === "public") {
+                    instanceText.textContent = "Pública (Efêmera)";
+                    instanceBadge.className = "badge badge-public";
+                    instanceBadge.querySelector("[data-icon]").innerHTML = AppIcons.get("globe", "ui-icon ui-icon-sm");
+                } else if (inst.instance_mode === "byok") {
+                    instanceText.textContent = "BYOK (Sua Chave)";
+                    instanceBadge.className = "badge badge-byok";
+                    instanceBadge.querySelector("[data-icon]").innerHTML = AppIcons.get("key", "ui-icon ui-icon-sm");
+                } else {
+                    instanceText.textContent = "Instância Privada";
+                    instanceBadge.className = "badge badge-private";
+                    instanceBadge.querySelector("[data-icon]").innerHTML = AppIcons.get("shield", "ui-icon ui-icon-sm");
+                }
+            }
+
+            if (limitsBadge && limitsText) {
+                if (inst.max_audio_duration_seconds && inst.max_audio_duration_seconds > 0) {
+                    const mins = Math.round(inst.max_audio_duration_seconds / 60);
+                    limitsText.textContent = `Máx ${mins} min`;
+                    limitsBadge.classList.remove("hidden");
+                } else {
+                    limitsBadge.classList.add("hidden");
+                }
             }
 
             // Popula motores locais
@@ -211,7 +343,7 @@ document.addEventListener("DOMContentLoaded", () => {
     // Gerenciamento de Histórico Salvo no Disco
     async function loadHistory() {
         try {
-            const resp = await fetch("/api/history");
+            const resp = await apiRequest("/api/history");
             if (!resp.ok) return;
             state.history = await resp.json();
             renderHistory();
@@ -284,7 +416,7 @@ document.addEventListener("DOMContentLoaded", () => {
     async function openHistoryItem(id) {
         try {
             showProgress("Carregando transcrição do histórico...", 30);
-            const resp = await fetch(`/api/history/${id}`);
+            const resp = await apiRequest(`/api/history/${id}`);
             if (!resp.ok) throw new Error("Erro ao carregar item do histórico");
             const fullData = await resp.json();
 
@@ -308,7 +440,7 @@ document.addEventListener("DOMContentLoaded", () => {
     async function deleteHistoryItem(id) {
         if (!confirm("Deseja realmente excluir esta transcrição do histórico?")) return;
         try {
-            const resp = await fetch(`/api/history/${id}`, { method: "DELETE" });
+            const resp = await apiRequest(`/api/history/${id}`, { method: "DELETE" });
             if (!resp.ok) throw new Error("Erro ao excluir");
             state.history = state.history.filter(h => h.id !== id);
             if (state.activeItem && state.activeItem.id === id) {
@@ -691,6 +823,164 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     }
 
+    // Modal de Acesso Remoto & Celular
+    function setupRemoteModal() {
+        if (!remoteBtn) return;
+        remoteBtn.addEventListener("click", () => {
+            openRemoteModal();
+        });
+
+        if (remoteModalClose) {
+            remoteModalClose.addEventListener("click", () => {
+                closeRemoteModal();
+            });
+        }
+
+        if (remoteModal) {
+            remoteModal.addEventListener("click", (e) => {
+                if (e.target === remoteModal) closeRemoteModal();
+            });
+        }
+
+        if (tabRemoteInternet && tabRemoteLan) {
+            tabRemoteInternet.addEventListener("click", () => {
+                tabRemoteInternet.classList.add("active");
+                tabRemoteLan.classList.remove("active");
+                remoteContentInternet.classList.remove("hidden");
+                remoteContentLan.classList.add("hidden");
+            });
+
+            tabRemoteLan.addEventListener("click", () => {
+                tabRemoteLan.classList.add("active");
+                tabRemoteInternet.classList.remove("active");
+                remoteContentLan.classList.remove("hidden");
+                remoteContentInternet.classList.add("hidden");
+            });
+        }
+
+        if (copyTunnelLinkBtn && tunnelUrlInput) {
+            copyTunnelLinkBtn.addEventListener("click", () => {
+                navigator.clipboard.writeText(tunnelUrlInput.value);
+                showToast("Link público copiado!");
+            });
+        }
+
+        if (copyLanLinkBtn && lanUrlInput) {
+            copyLanLinkBtn.addEventListener("click", () => {
+                navigator.clipboard.writeText(lanUrlInput.value);
+                showToast("Link Wi-Fi copiado!");
+            });
+        }
+
+        if (copyPinBtn && displayPinCode) {
+            copyPinBtn.addEventListener("click", () => {
+                navigator.clipboard.writeText(displayPinCode.textContent);
+                showToast("PIN copiado!");
+            });
+        }
+    }
+
+    async function openRemoteModal() {
+        if (!remoteModal) return;
+        remoteModal.classList.remove("hidden");
+        await loadTunnelInfo();
+        if (window.AppIcons) window.AppIcons.renderAll();
+    }
+
+    function closeRemoteModal() {
+        if (!remoteModal) return;
+        remoteModal.classList.add("hidden");
+    }
+
+    async function loadTunnelInfo() {
+        try {
+            const resp = await apiRequest("/api/tunnel/info");
+            if (!resp.ok) return;
+            const data = await resp.json();
+
+            // Link do Túnel Cloudflare
+            if (data.tunnel_active && data.public_url) {
+                tunnelActiveBox.classList.remove("hidden");
+                tunnelInactiveBox.classList.add("hidden");
+
+                let publicLink = data.public_url;
+                if (data.requires_pin && data.access_pin) {
+                    publicLink += `?pin=${data.access_pin}`;
+                }
+                tunnelUrlInput.value = publicLink;
+
+                if (window.QRCodeSVG && qrContainerPublic) {
+                    qrContainerPublic.innerHTML = window.QRCodeSVG.generate(publicLink, 180);
+                }
+
+                if (data.requires_pin && data.access_pin) {
+                    pinDisplayBox.classList.remove("hidden");
+                    displayPinCode.textContent = data.access_pin;
+                } else {
+                    pinDisplayBox.classList.add("hidden");
+                }
+            } else {
+                tunnelActiveBox.classList.add("hidden");
+                tunnelInactiveBox.classList.remove("hidden");
+            }
+
+            // Link Wi-Fi Local
+            let lanLink = data.lan_url;
+            if (data.requires_pin && data.access_pin) {
+                lanLink += `?pin=${data.access_pin}`;
+            }
+            if (lanUrlInput) lanUrlInput.value = lanLink;
+            if (window.QRCodeSVG && qrContainerLan) {
+                qrContainerLan.innerHTML = window.QRCodeSVG.generate(lanLink, 180);
+            }
+        } catch (e) {
+            console.error("Erro ao carregar informações de túnel:", e);
+        }
+    }
+
+    // Modal de Autenticação por PIN
+    function setupAuthModal() {
+        if (!authForm) return;
+        authForm.addEventListener("submit", async (e) => {
+            e.preventDefault();
+            const pinVal = authPinInput.value.trim();
+            if (!pinVal) return;
+
+            authSubmitBtn.disabled = true;
+            authErrorMsg.classList.add("hidden");
+
+            try {
+                const ok = await verifyAndSavePin(pinVal);
+                if (ok) {
+                    closeAuthModal();
+                    authPinInput.value = "";
+                    await loadSystemInfo();
+                    await loadHistory();
+                } else {
+                    authErrorMsg.textContent = "PIN incorreto. Tente novamente.";
+                    authErrorMsg.classList.remove("hidden");
+                }
+            } catch (err) {
+                authErrorMsg.textContent = err.message || "Erro de conexão.";
+                authErrorMsg.classList.remove("hidden");
+            } finally {
+                authSubmitBtn.disabled = false;
+            }
+        });
+    }
+
+    function openAuthModal() {
+        if (!authModal) return;
+        authModal.classList.remove("hidden");
+        if (authPinInput) authPinInput.focus();
+        if (window.AppIcons) window.AppIcons.renderAll();
+    }
+
+    function closeAuthModal() {
+        if (!authModal) return;
+        authModal.classList.add("hidden");
+    }
+
     // Ações de Botões e Exportações
     function setupActions() {
         startTranscribeBtn.addEventListener("click", () => {
@@ -800,7 +1090,7 @@ document.addEventListener("DOMContentLoaded", () => {
         formData.append("language", audioLanguageSelect.value);
         formData.append("task", audioTaskSelect.value);
 
-        const jobResp = await fetch("/api/jobs", {
+        const jobResp = await apiRequest("/api/jobs", {
             method: "POST",
             body: formData
         });
@@ -815,7 +1105,7 @@ document.addEventListener("DOMContentLoaded", () => {
         return new Promise((resolve, reject) => {
             const interval = setInterval(async () => {
                 try {
-                    const statusResp = await fetch(`/api/jobs/${job_id}`);
+                    const statusResp = await apiRequest(`/api/jobs/${job_id}`);
                     if (!statusResp.ok) {
                         clearInterval(interval);
                         return reject(new Error("Erro ao obter status do trabalho."));

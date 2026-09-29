@@ -978,6 +978,371 @@ label {
     }
 }
 
+/* ===================================================
+   Header Actions, Badges & Acesso Remoto
+   =================================================== */
+.header-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.btn-remote {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 14px;
+    font-size: 0.82rem;
+    font-weight: 500;
+    border-radius: var(--radius-sm);
+    background: rgba(99, 102, 241, 0.12);
+    border: 1px solid rgba(99, 102, 241, 0.35);
+    color: #a5b4fc;
+    cursor: pointer;
+    transition: var(--transition);
+}
+
+.btn-remote:hover {
+    background: rgba(99, 102, 241, 0.22);
+    border-color: var(--primary);
+    color: white;
+}
+
+.badge-public {
+    background: rgba(16, 185, 129, 0.15);
+    color: #34d399;
+    border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.badge-private {
+    background: rgba(148, 163, 184, 0.15);
+    color: #cbd5e1;
+    border: 1px solid rgba(148, 163, 184, 0.3);
+}
+
+.badge-byok {
+    background: rgba(245, 158, 11, 0.15);
+    color: #fbbf24;
+    border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.badge-limits {
+    background: rgba(56, 189, 248, 0.15);
+    color: #38bdf8;
+    border: 1px solid rgba(56, 189, 248, 0.3);
+}
+
+/* ===================================================
+   Modais (Acesso Remoto & Autenticação PIN)
+   =================================================== */
+.modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.75);
+    backdrop-filter: blur(6px);
+    z-index: 10000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    animation: fadeIn 0.2s ease-out;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.modal-card {
+    background: var(--bg-surface);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-md);
+    width: 100%;
+    max-width: 480px;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
+    overflow: hidden;
+}
+
+.modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border-subtle);
+    background: var(--bg-surface-elevated);
+}
+
+.modal-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--text-main);
+}
+
+.modal-title h3 {
+    margin: 0;
+    font-size: 1.05rem;
+    font-weight: 600;
+}
+
+.modal-close-btn {
+    background: transparent;
+    border: none;
+    color: var(--text-dim);
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 4px;
+    transition: var(--transition);
+}
+
+.modal-close-btn:hover {
+    color: var(--text-main);
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.modal-body {
+    padding: 20px;
+}
+
+.remote-tabs {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 18px;
+    border-bottom: 1px solid var(--border-subtle);
+    padding-bottom: 10px;
+}
+
+.remote-tab-btn {
+    flex: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 8px 12px;
+    font-size: 0.82rem;
+    font-weight: 500;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    border: 1px solid transparent;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: var(--transition);
+}
+
+.remote-tab-btn.active {
+    background: var(--bg-surface-elevated);
+    border-color: var(--primary);
+    color: var(--text-main);
+}
+
+.remote-desc {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    margin-bottom: 14px;
+    line-height: 1.45;
+}
+
+.qr-wrapper {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 14px;
+    background: white;
+    border-radius: var(--radius-sm);
+    width: fit-content;
+    margin: 0 auto 16px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.remote-link-row {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+.remote-link-row input {
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    color: #38bdf8;
+    background: rgba(15, 23, 42, 0.6);
+}
+
+.pin-box {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 14px;
+    background: rgba(99, 102, 241, 0.1);
+    border: 1px solid rgba(99, 102, 241, 0.25);
+    border-radius: var(--radius-sm);
+    margin-top: 10px;
+}
+
+.pin-label {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+}
+
+.pin-code {
+    font-family: var(--font-mono);
+    font-size: 1.1rem;
+    letter-spacing: 0.15em;
+    color: #a5b4fc;
+}
+
+.modal-auth {
+    max-width: 380px;
+}
+
+.modal-header-center {
+    flex-direction: column;
+    text-align: center;
+    padding: 24px 20px 16px;
+}
+
+.auth-icon-circle {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: rgba(99, 102, 241, 0.15);
+    color: var(--primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 12px;
+}
+
+.modal-subtitle {
+    font-size: 0.82rem;
+    color: var(--text-muted);
+    margin-top: 4px;
+}
+
+.auth-pin-field {
+    text-align: center;
+    font-size: 1.3rem;
+    letter-spacing: 0.2em;
+    font-family: var(--font-mono);
+    padding: 12px;
+}
+
+.auth-error {
+    font-size: 0.8rem;
+    color: #f87171;
+    text-align: center;
+    margin-bottom: 10px;
+}
+
+.empty-state-small {
+    text-align: center;
+    padding: 24px 16px;
+    color: var(--text-muted);
+}
+
+.empty-state-small h4 {
+    color: var(--text-main);
+    margin: 8px 0;
+}
+
+.empty-state-small code {
+    background: rgba(0, 0, 0, 0.3);
+    padding: 3px 6px;
+    border-radius: 4px;
+    color: #38bdf8;
+    font-size: 0.85rem;
+}
+
+/* ===================================================
+   Responsividade Mobile Completa (360px a 900px)
+   =================================================== */
+@media (max-width: 900px) {
+    .app-container {
+        padding: 12px;
+        max-width: 100%;
+    }
+
+    .app-header {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 12px;
+        padding-bottom: 16px;
+        margin-bottom: 16px;
+    }
+
+    .header-actions {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 10px;
+    }
+
+    .header-badges {
+        flex-wrap: wrap;
+        justify-content: flex-start;
+    }
+
+    .btn-remote {
+        justify-content: center;
+        width: 100%;
+        min-height: 44px;
+    }
+
+    .main-grid {
+        grid-template-columns: 1fr;
+        gap: 16px;
+    }
+
+    .btn-primary, .btn-secondary, .btn-block {
+        min-height: 44px;
+    }
+
+    .record-card {
+        padding: 14px;
+    }
+
+    .record-card .btn {
+        min-height: 44px;
+    }
+
+    .export-actions {
+        display: grid !important;
+        grid-template-columns: 1fr 1fr;
+        gap: 6px;
+        width: 100%;
+        margin-top: 10px;
+    }
+
+    .export-actions .btn {
+        justify-content: center;
+        min-height: 40px;
+    }
+
+    .card-header-flex {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+    }
+
+    .audio-player-widget {
+        padding: 12px;
+    }
+
+    .audio-scrubber {
+        height: 10px;
+    }
+
+    .segment-item {
+        padding: 12px 10px;
+    }
+
+    .timestamp {
+        padding: 6px 10px;
+        min-height: 32px;
+        display: inline-flex;
+        align-items: center;
+    }
+}
+
 /* ============================
    Story Mode (9:16 vertical)
    ============================ */
