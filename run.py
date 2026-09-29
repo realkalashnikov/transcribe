@@ -42,6 +42,17 @@ def open_browser(url: str):
 if __name__ == "__main__":
     args = parse_args()
 
+    # Se executado sem flags em terminal interativo, aciona o Menu CLI Moderno
+    if len(sys.argv) == 1 and sys.stdin.isatty():
+        from app.core.cli_menu import run_interactive_menu
+        choice = run_interactive_menu()
+        if choice == "public":
+            args.public = True
+        elif choice == "tunnel":
+            args.tunnel = True
+        elif choice == "exit" or choice is None:
+            sys.exit(0)
+
     # Aplica argumentos na configuração
     settings.port = args.port
     settings.host = args.host

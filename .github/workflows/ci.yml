@@ -41,6 +41,10 @@ jobs:
         run: |
           python test_app.py
 
+      - name: Run CLI Menu Navigation Tests
+        run: |
+          python test_cli_menu.py
+
       - name: Test FastAPI Static Files & API Endpoints
         run: |
           python -c "from fastapi.testclient import TestClient; from app.main import app; c = TestClient(app); r = c.get('/'); assert r.status_code == 200; r2 = c.get('/api/info'); assert r2.status_code == 200; r3 = c.get('/api/history'); assert r3.status_code == 200; print('All endpoint assertions passed!')"
