@@ -11,6 +11,7 @@ from app.engine.faster_whisper import FasterWhisperTranscriber
 from app.engine.cloud_apis import CloudTranscriber
 from app.services.exporter import Exporter
 from app.services.history import HistoryService
+from app.services.concurrency import ConcurrencyGuard
 
 from app.engine.whisper_cpp import WhisperCppTranscriber
 
@@ -41,9 +42,9 @@ class TranscriberService:
     ) -> TranscriptionResult:
         _JOBS[job_id] = {
             "id": job_id,
-            "status": "processing",
-            "progress": 5.0,
-            "message": "Iniciando processamento...",
+            "status": "queued",
+            "progress": 0.0,
+            "message": "Aguardando vaga para processamento...",
             "result": None,
             "error": None
         }
@@ -51,7 +52,9 @@ class TranscriberService:
         def on_progress(pct: float, msg: str):
             TranscriberService.update_job(job_id, progress=pct, message=msg)
 
+        ConcurrencyGuard.acquire()
         try:
+            TranscriberService.update_job(job_id, status="processing", progress=5.0, message="Iniciando processamento...")
             provider_clean = (provider or "faster-whisper").lower().strip()
 
             if provider_clean in ["faster-whisper", "local"]:
@@ -122,6 +125,7 @@ class TranscriberService:
             )
             raise e
         finally:
+            ConcurrencyGuard.release()
             # Remove arquivo temporário se desejar manter o disco limpo
             try:
                 if os.path.exists(file_path):

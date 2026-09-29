@@ -24,7 +24,7 @@ class CleanerService:
             return 0
 
         for file_path in UPLOAD_DIR.glob("*"):
-            if not file_path.is_file():
+            if not file_path.is_file() or file_path.name.startswith("."):
                 continue
             try:
                 mtime = file_path.stat().st_mtime
@@ -57,7 +57,7 @@ class CleanerService:
         # 1. Limpa arquivos soltos na raiz de history (caso público)
         if settings.is_public:
             for file_path in HISTORY_DIR.glob("*"):
-                if file_path.is_file():
+                if file_path.is_file() and not file_path.name.startswith("."):
                     try:
                         mtime = file_path.stat().st_mtime
                         if (now - mtime) > max_age_seconds:

@@ -1,132 +1,191 @@
 <div align="center">
 
-# 🎙️ Transcriber
+# 🎙️ Transcribe Studio
 
-**Aplicação leve, rápida e moderna para transcrição de áudios e vídeos.**  
-*Execute 100% offline no seu computador (com faster-whisper ou whisper.cpp) ou acelere na nuvem (Groq, OpenAI, Gemini).*
+**Aplicação moderna de transcrição de áudios e vídeos, pronta para auto-hospedagem e instâncias públicas abertas ao mundo (estilo Cobalt e Monochrome).**  
+*Execute 100% offline no seu computador (faster-whisper / whisper.cpp), compartilhe remotamente com seu smartphone via QR Code (Túnel Cloudflare HTTPS grátis) ou acelere na nuvem (Groq, OpenAI, Gemini).*
 
 [![CI Pipeline](https://github.com/realkalashnikov/transcriber/actions/workflows/ci.yml/badge.svg)](https://github.com/realkalashnikov/transcriber/actions)
 ![Python](https://img.shields.io/badge/Python-3.11%20%7C%203.12%20%7C%203.13-3776AB?logo=python&logoColor=white)
 ![FastAPI](https://img.shields.io/badge/FastAPI-009688?logo=fastapi&logoColor=white)
 ![faster-whisper](https://img.shields.io/badge/faster--whisper-CTranslate2-orange)
 ![whisper.cpp](https://img.shields.io/badge/whisper.cpp-GGML-blueviolet)
+![Cloudflare Tunnel](https://img.shields.io/badge/Cloudflare-Quick%20Tunnel-F38020?logo=cloudflare&logoColor=white)
 ![License MIT](https://img.shields.io/badge/License-MIT-green.svg)
 
 <br>
 
-![Transcriber Interface](docs/screenshots/transcription_view.png)
+![Transcribe Studio Interface](docs/screenshots/transcription_view.png)
 
 </div>
 
 ---
 
-## ✨ Destaques
+## ✨ Recursos Principais
 
-- 🚀 **Zero Complicação (Sem Docker e Sem Node.js)**: Roda com apenas um comando Python no Windows/Linux/macOS.
-- 💻 **Modo Local Offline & Privado**:
-  - **faster-whisper**: Acelerado com CTranslate2 e quantização `int8` rápida para CPU (ou `float16` via CUDA se GPU disponível).
-  - **whisper.cpp**: Execução otimizada em C++ via GGML (`pywhispercpp`).
-  - **Decodificação Nativa via PyAV**: Suporta MP3, WAV, M4A, OGG, FLAC, MP4, MKV, WebM, etc. sem depender do `ffmpeg.exe` externo.
-- ☁️ **Modo Nuvem Opcional (via API Key)**:
-  - **Groq Whisper**: Transcrições ultrarrápidas de áudios longos em segundos.
-  - **OpenAI Whisper**: Transcrição oficial Whisper-1.
-  - **Google Gemini**: Transcrição de alta fidelidade com Gemini 2.5 Flash.
-  - Chaves de API salvas com segurança direto no `localStorage` do seu navegador.
-- 🎧 **Player de Áudio Integrado & Minutagem Interativa**:
-  - Clique em qualquer timestamp (`00:15 - 00:22`) para pular o áudio diretamente para o trecho.
-- 💾 **Histórico Permanente no Disco**:
-  - Suas transcrições são salvas automaticamente em disco. Reinicie o servidor ou feche o navegador sem perder nenhum resultado.
-- 🔍 **Busca em Tempo Real**:
-  - Encontre qualquer palavra ou frase com destaque dinâmico (*highlight*).
-- 📤 **Exportação em 1 Clique**:
-  - **TXT** (texto corrido)
-  - **SRT** (legendas sincronizadas para VLC, YouTube, Premiere)
-  - **VTT** (legendas web)
-  - **JSON** (metadados estruturados completos)
+### 🌐 Auto-Hospedagem & Instâncias Públicas (Estilo Cobalt)
+- **Modos Flexíveis de Instância (`INSTANCE_MODE`)**:
+  - `private`: Uso pessoal ou equipe fechada (exige PIN se configurado, salva histórico permanente no disco).
+  - `public`: Aberto ao mundo como serviço público gratuito. **Sessões 100% isoladas** e modo efêmero — nenhum visitante enxerga os áudios de outro.
+  - `byok` (*Bring Your Own Key*): Modo público onde cada visitante usa sua própria chave de API (Groq/OpenAI/Gemini).
+- **Escudo Anti-Abuso & Quotas de Proteção**:
+  - **Rate Limiting em Memória**: Bloqueia flood de requisições por IP e sessão (HTTP 429).
+  - **Validação Estrita de Upload**: Limite de tamanho (`MAX_UPLOAD_SIZE_MB`) e duração de áudio (`MAX_AUDIO_DURATION_SECONDS`).
+  - **Controle de Concorrência**: Limita transcrições simultâneas (`MAX_CONCURRENT_JOBS`) para não sobrecarregar sua GPU/CPU.
+- **Auto-Cleaner Efêmero em Background**:
+  - Limpa uploads órfãos e expira históricos e áudios antigos em modo público (padrão 60 minutos), mantendo o disco do host sempre limpo.
 
----
+### 📱 Acesso Remoto pelo Celular & Túnel Cloudflare Integrado
+- **Zero Configuração de Portas**: Baixa automaticamente o binário do Cloudflare Tunnel se necessário e cria uma URL temporária com HTTPS válido (`https://*.trycloudflare.com`).
+- **Login em 1 Toque via QR Code**: O QR Code gerado no terminal e na interface já contém a URL com token seguro, conectando seu celular imediatamente ao escanear a câmera.
+- **Detecção de Rede Wi-Fi (LAN)**: Descobre seu IP local automaticamente para uso em rede doméstica com latência zero.
+- **Gravação Direta pelo Microfone do Smartphone**: O HTTPS provido pelo túnel permite gravação de voz diretamente no navegador do celular (Chrome/Safari).
 
-## 🐍 Não tem o Python instalado? (Guia em 1 minuto)
+### 🤖 API REST Pública v1 (`/api/v1`)
+- Endpoints padronizados para bots de Discord, Telegram, automações e desenvolvedores:
+  - `POST /api/v1/transcribe`: Transcrição de arquivos com retornos em JSON, TXT, SRT ou VTT.
+  - `GET /api/v1/info`: Metadados da instância (status, limites, motores, hardware).
+  - `GET /api/v1/status`: Verificação rápida de integridade (*health check*).
+  - Documentação Swagger interativa em `/docs`.
 
-O Transcriber funciona com Python 3.10 ou superior:
-
-- **Windows**:
-  1. Baixe o instalador oficial em **[python.org/downloads](https://www.python.org/downloads/)**.
-  2. ⚠️ **MUITO IMPORTANTE**: Na primeira tela do instalador, marque a opção **☑ Add python.exe to PATH** antes de clicar em *Install Now*.
-  *(Ou instale direto pelo terminal: `winget install Python.Python.3.12`)*
-- **Linux (Ubuntu/Debian)**: `sudo apt update && sudo apt install -y python3 python3-pip python3-venv ffmpeg`
-- **macOS**: `brew install python`
+### ⚡ Motores de Transcrição Locais & Nuvem
+- **Local (Offline)**: `faster-whisper` (CTranslate2 com quantização int8 para CPU ou CUDA para GPU) e `whisper.cpp` (GGML).
+- **Decodificação Nativa via PyAV**: Suporta MP3, WAV, M4A, OGG, FLAC, MP4, MKV, WebM, etc. sem depender do `ffmpeg.exe` externo.
+- **Nuvem Opcional**: Groq (Whisper-large-v3 ultra-rápido), OpenAI (Whisper-1) e Gemini 2.5 Flash.
 
 ---
 
-## ⚡ Como Iniciar no Windows
+## 🚀 Como Iniciar
 
-### Opção 1: Dois cliques (Mais fácil)
-Basta dar dois cliques no arquivo:
+### No Windows (Menu Interativo)
+Dê dois cliques no arquivo:
 ```cmd
 run.bat
 ```
-> **Nota**: O script `run.bat` verifica se o Python está presente e instala as dependências automaticamente na primeira execução!
-
-### Opção 2: Pelo Terminal
-```powershell
-python run.py
+Você verá um menu simples:
+```text
+  [1] Local Pessoal (Apenas neste computador - Padrão)
+  [2] Compartilhado / Celular (Túnel Cloudflare HTTPS com PIN)
+  [3] Instância Pública Aberta (Estilo Cobalt, histórico efêmero)
+  [4] Sair
 ```
-O servidor iniciará em `http://localhost:8000` e seu navegador padrão será aberto automaticamente!
+
+### Pela Linha de Comando (CLI)
+```bash
+# 1. Modo Local Padrão
+python run.py
+
+# 2. Modo Celular / Acesso Remoto (Túnel HTTPS + QR Code)
+python run.py --share
+
+# 3. Modo Instância Pública (Aberta ao mundo, quotas ativas)
+python run.py --public
+
+# 4. Modo Privado com PIN Personalizado
+python run.py --share --pin 123456
+```
 
 ---
 
-## 📦 Instalação Manual
+## 🛠️ Variáveis de Ambiente (`.env`)
 
-Se for executar em outra máquina pela primeira vez:
+Copie o arquivo de exemplo para configurar sua instância:
+```bash
+cp .env.example .env
+```
+
+| Variável | Padrão | Descrição |
+|---|---|---|
+| `INSTANCE_MODE` | `private` | Modo da instância: `private`, `public` ou `byok` |
+| `INSTANCE_NAME` | `Transcribe Studio` | Nome visível da instância no cabeçalho e na API |
+| `ACCESS_PIN` | *(vazio)* | PIN de segurança de 6 dígitos para acesso ao modo privado |
+| `MAX_AUDIO_DURATION_SECONDS` | `300` | Duração máxima por áudio em segundos (5 min em público) |
+| `MAX_UPLOAD_SIZE_MB` | `50` | Tamanho máximo por arquivo de upload em MB |
+| `MAX_CONCURRENT_JOBS` | `2` | Número máximo de tarefas de inferência simultâneas |
+| `RATE_LIMIT_PER_MINUTE` | `30` | Requisições permitidas por minuto por IP |
+| `TRANSCRIBE_RATE_LIMIT_PER_MINUTE` | `5` | Transcrições permitidas por minuto por IP |
+| `CLEANUP_EXPIRE_MINUTES` | `60` | Tempo para auto-excluir arquivos temporários no modo público |
+| `PORT` | `8000` | Porta local do servidor HTTP |
+
+---
+
+## 🌐 Documentação da API REST v1
+
+### 1. Metadados da Instância
+```bash
+curl -X GET "http://localhost:8000/api/v1/info"
+```
+
+### 2. Transcrever Arquivo de Áudio
+```bash
+curl -X POST "http://localhost:8000/api/v1/transcribe" \
+     -F "file=@audio_exemplo.mp3" \
+     -F "provider=faster-whisper" \
+     -F "model=base" \
+     -F "language=pt" \
+     -F "response_format=json"
+```
+
+**Exemplo de Resposta JSON:**
+```json
+{
+  "id": "e6f8b91a-7b3c-4d2a-89a1-0f7451234567",
+  "text": "Olá mundo, esta é uma transcrição automática.",
+  "language": "pt",
+  "duration": 3.42,
+  "model": "base",
+  "provider": "faster-whisper",
+  "segments": [
+    {
+      "id": 1,
+      "start": 0.0,
+      "end": 3.42,
+      "text": "Olá mundo, esta é uma transcrição automática."
+    }
+  ]
+}
+```
+
+### 3. Baixar Diretamente como Legenda SRT
+```bash
+curl -X POST "http://localhost:8000/api/v1/transcribe" \
+     -F "file=@podcast.m4a" \
+     -F "response_format=srt" > legendas.srt
+```
+
+---
+
+## 🐳 Execução via Docker & Docker Compose
+
+Para rodar em servidores ou VPS:
 
 ```bash
-# 1. Clone o repositório
-git clone https://github.com/realkalashnikov/transcriber.git
-cd transcriber
+# Iniciar serviço em segundo plano
+docker compose up -d --build
+```
 
-# 2. Crie e ative um ambiente virtual
-python -m venv .venv
-.venv\Scripts\activate   # No Windows
-# source .venv/bin/activate  # No Linux/macOS
-
-# 3. Instale as dependências
-pip install -r requirements.txt
-
-# 4. Inicie
-python run.py
+Para habilitar suporte a GPU NVIDIA no Docker, descomente a seção `deploy` no arquivo `docker-compose.yml`:
+```yaml
+deploy:
+  resources:
+    reservations:
+      devices:
+        - driver: nvidia
+          count: all
+          capabilities: [gpu]
 ```
 
 ---
 
-## 📊 Guia de Modelos Locais (Whisper)
+## 📊 Guia de Modelos Whisper
 
 | Modelo | Parâmetros | RAM Recomendada | Velocidade Relativa | Uso Recomendado |
 |---|---|---|---|---|
-| **tiny** | ~39M | ~1 GB | ⚡⚡⚡⚡⚡ (~32x) | Testes rápidos, rascunhos, dispositivos modestos |
+| **tiny** | ~39M | ~1 GB | ⚡⚡⚡⚡⚡ (~32x) | Testes rápidos, rascunhos, servidores modestos |
 | **base** | ~74M | ~1 GB | ⚡⚡⚡⚡ (~16x) | **Recomendado para uso diário em CPU** |
 | **small** | ~244M | ~2 GB | ⚡⚡⚡ (~6x) | Boa precisão para vocabulários técnicos |
 | **medium** | ~769M | ~5 GB | ⚡⚡ (~2x) | Alta precisão para áudios com ruído |
 | **large-v3** | ~1550M | ~10 GB | ⚡ (1x) | Precisão máxima para dublagem/legendagem profissional |
-
----
-
-## 🐳 Docker (Opcional)
-
-Se preferir rodar isolado em contêiner Docker:
-
-```bash
-docker compose up -d --build
-```
-Acesse `http://localhost:8000`.
-
----
-
-## 🤝 Contribuindo
-
-Contribuições são super bem-vindas! Veja as instruções no nosso [Guia de Contribuição](CONTRIBUTING.md).
-
-Para reportar bugs ou sugerir recursos, utilize nossos formulários em [Issues](https://github.com/realkalashnikov/transcriber/issues).
 
 ---
 

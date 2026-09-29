@@ -5,8 +5,29 @@ services:
     build: .
     container_name: transcribe-studio
     ports:
-      - "8000:8000"
+      - "${PORT:-8000}:8000"
+    environment:
+      - INSTANCE_MODE=${INSTANCE_MODE:-private}
+      - INSTANCE_NAME=${INSTANCE_NAME:-Transcribe Studio}
+      - ACCESS_PIN=${ACCESS_PIN:-}
+      - MAX_AUDIO_DURATION_SECONDS=${MAX_AUDIO_DURATION_SECONDS:-300}
+      - MAX_UPLOAD_SIZE_MB=${MAX_UPLOAD_SIZE_MB:-50}
+      - MAX_CONCURRENT_JOBS=${MAX_CONCURRENT_JOBS:-2}
+      - RATE_LIMIT_PER_MINUTE=${RATE_LIMIT_PER_MINUTE:-30}
+      - TRANSCRIBE_RATE_LIMIT_PER_MINUTE=${TRANSCRIBE_RATE_LIMIT_PER_MINUTE:-5}
+      - CLEANUP_EXPIRE_MINUTES=${CLEANUP_EXPIRE_MINUTES:-60}
+      - GROQ_API_KEY=${GROQ_API_KEY:-}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
     volumes:
       - ./uploads:/app/uploads
       - ./exports:/app/exports
     restart: unless-stopped
+    # Descomente abaixo para habilitar aceleração por GPU NVIDIA no Docker
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: all
+    #           capabilities: [gpu]
