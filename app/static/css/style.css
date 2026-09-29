@@ -1009,30 +1009,6 @@ label {
     color: white;
 }
 
-.badge-public {
-    background: rgba(16, 185, 129, 0.15);
-    color: #34d399;
-    border: 1px solid rgba(16, 185, 129, 0.3);
-}
-
-.badge-private {
-    background: rgba(148, 163, 184, 0.15);
-    color: #cbd5e1;
-    border: 1px solid rgba(148, 163, 184, 0.3);
-}
-
-.badge-byok {
-    background: rgba(245, 158, 11, 0.15);
-    color: #fbbf24;
-    border: 1px solid rgba(245, 158, 11, 0.3);
-}
-
-.badge-limits {
-    background: rgba(56, 189, 248, 0.15);
-    color: #38bdf8;
-    border: 1px solid rgba(56, 189, 248, 0.3);
-}
-
 /* ===================================================
    Modais (Acesso Remoto & Autenticação PIN)
    =================================================== */
@@ -1271,20 +1247,16 @@ label {
     }
 
     .header-actions {
-        flex-direction: column;
-        align-items: stretch;
+        flex-direction: row;
+        align-items: center;
+        justify-content: space-between;
         gap: 10px;
-    }
-
-    .header-badges {
-        flex-wrap: wrap;
-        justify-content: flex-start;
+        width: 100%;
     }
 
     .btn-remote {
-        justify-content: center;
-        width: 100%;
-        min-height: 44px;
+        padding: 6px 12px;
+        font-size: 0.8rem;
     }
 
     .main-grid {

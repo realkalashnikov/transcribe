@@ -22,10 +22,6 @@ document.addEventListener("DOMContentLoaded", () => {
     const cloudSettings = document.getElementById("cloud-settings");
     const hardwareBadge = document.getElementById("hardware-badge");
     const hardwareText = document.getElementById("hardware-text");
-    const instanceBadge = document.getElementById("instance-badge");
-    const instanceText = document.getElementById("instance-text");
-    const limitsBadge = document.getElementById("limits-badge");
-    const limitsText = document.getElementById("limits-text");
     const remoteBtn = document.getElementById("remote-btn");
 
     // Modal de Acesso Remoto
@@ -267,40 +263,13 @@ document.addEventListener("DOMContentLoaded", () => {
                 hardwareBadge.querySelector("[data-icon]").innerHTML = AppIcons.get("cpu", "ui-icon ui-icon-sm");
             }
 
-            // Atualiza Badges da Instância
+            // Em modo BYOK, oculta aba local e seleciona Nuvem
             const inst = data.instance || {};
-            if (instanceBadge && instanceText) {
-                if (inst.instance_mode === "public") {
-                    instanceText.textContent = "Pública (Efêmera)";
-                    instanceBadge.className = "badge badge-public";
-                    instanceBadge.querySelector("[data-icon]").innerHTML = AppIcons.get("globe", "ui-icon ui-icon-sm");
-                } else if (inst.instance_mode === "byok") {
-                    instanceText.textContent = "BYOK (Sua Chave)";
-                    instanceBadge.className = "badge badge-byok";
-                    instanceBadge.querySelector("[data-icon]").innerHTML = AppIcons.get("key", "ui-icon ui-icon-sm");
-                } else {
-                    instanceText.textContent = "Instância Privada";
-                    instanceBadge.className = "badge badge-private";
-                    instanceBadge.querySelector("[data-icon]").innerHTML = AppIcons.get("shield", "ui-icon ui-icon-sm");
-                }
-
-                // Em modo BYOK, oculta aba local e seleciona Nuvem
-                if (inst.instance_mode === "byok") {
-                    if (tabCloud) tabCloud.click();
-                    if (tabLocal) tabLocal.style.display = "none";
-                } else {
-                    if (tabLocal) tabLocal.style.display = "";
-                }
-            }
-
-            if (limitsBadge && limitsText) {
-                if (inst.max_audio_duration_seconds && inst.max_audio_duration_seconds > 0) {
-                    const mins = Math.round(inst.max_audio_duration_seconds / 60);
-                    limitsText.textContent = `Máx ${mins} min`;
-                    limitsBadge.classList.remove("hidden");
-                } else {
-                    limitsBadge.classList.add("hidden");
-                }
+            if (inst.instance_mode === "byok") {
+                if (tabCloud) tabCloud.click();
+                if (tabLocal) tabLocal.style.display = "none";
+            } else {
+                if (tabLocal) tabLocal.style.display = "";
             }
 
             // Popula motores locais

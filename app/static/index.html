@@ -22,20 +22,10 @@
                 </div>
             </div>
             <div class="header-actions">
-                <div class="header-badges">
-                    <span id="hardware-badge" class="badge badge-cpu">
-                        <span data-icon="cpu" data-icon-class="ui-icon ui-icon-sm"></span>
-                        <span id="hardware-text">Detectando Hardware...</span>
-                    </span>
-                    <span id="instance-badge" class="badge badge-private">
-                        <span data-icon="shield" data-icon-class="ui-icon ui-icon-sm"></span>
-                        <span id="instance-text">Modo Local</span>
-                    </span>
-                    <span id="limits-badge" class="badge badge-limits hidden">
-                        <span data-icon="clock" data-icon-class="ui-icon ui-icon-sm"></span>
-                        <span id="limits-text">Máx 5 min</span>
-                    </span>
-                </div>
+                <span id="hardware-badge" class="badge badge-cpu">
+                    <span data-icon="cpu" data-icon-class="ui-icon ui-icon-sm"></span>
+                    <span id="hardware-text">Detectando Hardware...</span>
+                </span>
                 <button type="button" id="remote-btn" class="btn btn-outline btn-remote">
                     <span data-icon="smartphone" data-icon-class="ui-icon ui-icon-sm"></span>
                     <span>Acesso Remoto / Celular</span>
@@ -374,7 +364,7 @@
                             <span data-icon="cloud" data-icon-class="ui-icon ui-icon-lg"></span>
                             <h4>Túnel Público Desativado</h4>
                             <p>Para liberar acesso seguro pela internet com HTTPS válido no celular, inicie o servidor com:</p>
-                            <code>python run.py --share</code> ou <code>python run.py --public</code>
+                            <code>python run.py --tunnel</code> ou <code>python run.py --share</code>
                         </div>
                     </div>
                 </div>
