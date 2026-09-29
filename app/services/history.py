@@ -17,15 +17,29 @@ def sanitize_session_id(session_id: Optional[str]) -> Optional[str]:
         return session_clean
     return None
 
+def sanitize_job_id(job_id: Optional[str]) -> Optional[str]:
+    """Valida e sanitiza o job_id para prevenir directory traversal e glob injection."""
+    if not job_id:
+        return None
+    job_clean = str(job_id).strip()
+    if re.match(r"^[a-zA-Z0-9_-]{1,64}$", job_clean):
+        return job_clean
+    return None
+
 def get_session_dir(session_id: Optional[str] = None) -> Path:
-    """Retorna o diretório de histórico correspondente à sessão ou raiz."""
-    safe_session = sanitize_session_id(session_id)
-    if safe_session:
-        target_dir = HISTORY_DIR / safe_session
-    elif settings.is_public:
-        target_dir = HISTORY_DIR / "_anonymous"
-    else:
+    """
+    Retorna o diretório de histórico correspondente:
+    - Modo privado: unificado na raiz HISTORY_DIR para o proprietário da instância.
+    - Modo público / BYOK: particionado estritamente por sessão efêmera.
+    """
+    if not settings.is_public:
         target_dir = HISTORY_DIR
+    else:
+        safe_session = sanitize_session_id(session_id)
+        if safe_session:
+            target_dir = HISTORY_DIR / safe_session
+        else:
+            target_dir = HISTORY_DIR / "_anonymous"
     target_dir.mkdir(parents=True, exist_ok=True)
     return target_dir
 
@@ -39,21 +53,25 @@ class HistoryService:
         session_id: Optional[str] = None
     ) -> None:
         """Salva a transcrição no disco em formato JSON e preserva o arquivo de áudio no escopo da sessão."""
+        safe_job = sanitize_job_id(job_id)
+        if not safe_job:
+            raise ValueError(f"Job ID inválido: {job_id}")
+
         target_dir = get_session_dir(session_id)
         audio_saved_name = None
 
         if audio_path and os.path.exists(audio_path):
             ext = os.path.splitext(audio_path)[1].lower() or ".mp3"
-            dest_audio = target_dir / f"{job_id}{ext}"
+            dest_audio = target_dir / f"{safe_job}{ext}"
             try:
                 shutil.copy2(audio_path, dest_audio)
-                audio_saved_name = f"{job_id}{ext}"
+                audio_saved_name = f"{safe_job}{ext}"
             except Exception as e:
                 print(f"[Aviso] Falha ao salvar áudio no histórico: {e}")
 
-        file_path = target_dir / f"{job_id}.json"
+        file_path = target_dir / f"{safe_job}.json"
         data = {
-            "id": job_id,
+            "id": safe_job,
             "filename": filename,
             "saved_at": datetime.now().strftime("%d/%m/%Y %H:%M"),
             "timestamp": datetime.now().timestamp(),
@@ -97,12 +115,16 @@ class HistoryService:
     @staticmethod
     def get(job_id: str, session_id: Optional[str] = None) -> Optional[Dict[str, Any]]:
         """Obtém os dados completos de uma transcrição salva no escopo da sessão."""
+        safe_job = sanitize_job_id(job_id)
+        if not safe_job:
+            return None
+
         target_dir = get_session_dir(session_id)
-        file_path = target_dir / f"{job_id}.json"
+        file_path = target_dir / f"{safe_job}.json"
         
         # Se não achou na sessão e o modo for privado (não público), tenta na raiz
         if not file_path.exists() and not settings.is_public and target_dir != HISTORY_DIR:
-            fallback = HISTORY_DIR / f"{job_id}.json"
+            fallback = HISTORY_DIR / f"{safe_job}.json"
             if fallback.exists():
                 file_path = fallback
 
@@ -118,26 +140,32 @@ class HistoryService:
     @staticmethod
     def get_audio_path(job_id: str, session_id: Optional[str] = None) -> Optional[Path]:
         """Localiza o arquivo de áudio associado ao job_id no escopo da sessão."""
+        safe_job = sanitize_job_id(job_id)
+        if not safe_job:
+            return None
+
         target_dir = get_session_dir(session_id)
-        item = HistoryService.get(job_id, session_id=session_id)
+        item = HistoryService.get(safe_job, session_id=session_id)
         if item and item.get("audio_file"):
-            p = target_dir / item["audio_file"]
+            # Garante que o nome do arquivo de áudio não tenta escapar a pasta
+            safe_audio_name = Path(item["audio_file"]).name
+            p = target_dir / safe_audio_name
             if p.exists():
                 return p
             # Fallback se for privado
             if not settings.is_public:
-                fallback_p = HISTORY_DIR / item["audio_file"]
+                fallback_p = HISTORY_DIR / safe_audio_name
                 if fallback_p.exists():
                     return fallback_p
 
-        # Busca por extensão dentro do target_dir
-        for candidate in target_dir.glob(f"{job_id}.*"):
+        # Busca por extensão dentro do target_dir com safe_job estrito (sem wildcard injection)
+        for candidate in target_dir.glob(f"{safe_job}.*"):
             if candidate.suffix.lower() != ".json":
                 return candidate
 
         # Fallback na raiz apenas se for privado
         if not settings.is_public and target_dir != HISTORY_DIR:
-            for candidate in HISTORY_DIR.glob(f"{job_id}.*"):
+            for candidate in HISTORY_DIR.glob(f"{safe_job}.*"):
                 if candidate.suffix.lower() != ".json":
                     return candidate
 
@@ -146,9 +174,13 @@ class HistoryService:
     @staticmethod
     def delete(job_id: str, session_id: Optional[str] = None) -> bool:
         """Exclui a transcrição e qualquer arquivo de áudio associado dentro do escopo da sessão."""
+        safe_job = sanitize_job_id(job_id)
+        if not safe_job:
+            return False
+
         target_dir = get_session_dir(session_id)
         success = False
-        for p in target_dir.glob(f"{job_id}.*"):
+        for p in target_dir.glob(f"{safe_job}.*"):
             try:
                 os.remove(p)
                 success = True
@@ -156,7 +188,7 @@ class HistoryService:
                 pass
 
         if not success and not settings.is_public and target_dir != HISTORY_DIR:
-            for p in HISTORY_DIR.glob(f"{job_id}.*"):
+            for p in HISTORY_DIR.glob(f"{safe_job}.*"):
                 try:
                     os.remove(p)
                     success = True

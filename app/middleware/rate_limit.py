@@ -22,22 +22,15 @@ class RateLimiterMiddleware(BaseHTTPMiddleware):
         self._lock = threading.Lock()
         self._last_cleanup = time.time()
 
-    def _get_client_key(self, request: Request) -> str:
+    def _get_client_ip(self, request: Request) -> str:
         # Pega IP real (com suporte a Cloudflare / proxy reverso)
         cf_ip = request.headers.get("cf-connecting-ip")
         if cf_ip:
-            client_ip = cf_ip.strip()
-        else:
-            forwarded = request.headers.get("x-forwarded-for")
-            if forwarded:
-                client_ip = forwarded.split(",")[0].strip()
-            else:
-                client_ip = request.client.host if request.client else "unknown"
-
-        session_id = request.headers.get("x-session-id") or request.cookies.get("session_id")
-        if session_id:
-            return f"{client_ip}:{session_id[:16]}"
-        return client_ip
+            return cf_ip.strip()
+        forwarded = request.headers.get("x-forwarded-for")
+        if forwarded:
+            return forwarded.split(",")[0].strip()
+        return request.client.host if request.client else "unknown"
 
     def _cleanup_old_entries(self, now: float):
         """Remove registros com mais de 2 minutos para evitar vazamento de memória."""
@@ -71,7 +64,7 @@ class RateLimiterMiddleware(BaseHTTPMiddleware):
         ):
             return await call_next(request)
 
-        client_key = self._get_client_key(request)
+        client_key = self._get_client_ip(request)
         now = time.time()
 
         with self._lock:

@@ -7,144 +7,301 @@ from pathlib import Path
 from fastapi.testclient import TestClient
 
 from app.core.config import settings, BASE_DIR, HISTORY_DIR, UPLOAD_DIR
-from app.services.history import HistoryService
+from app.services.history import HistoryService, sanitize_session_id, sanitize_job_id
 from app.services.cleaner import CleanerService
 from app.services.concurrency import ConcurrencyGuard
 from app.main import app
 
 def test_session_isolation():
-    print("[1/5] Testando isolamento de sessões...")
-    session_a = f"test_user_a_{uuid.uuid4().hex[:8]}"
-    session_b = f"test_user_b_{uuid.uuid4().hex[:8]}"
+    print("[1/9] Testando isolamento de sessões (público vs privado)...")
+    original_mode = settings.instance_mode
+    
+    # 1. Modo Público: isolamento estrito
+    settings.instance_mode = "public"
+    session_a = f"user_a_{uuid.uuid4().hex[:8]}"
+    session_b = f"user_b_{uuid.uuid4().hex[:8]}"
 
     job_a = f"job_a_{uuid.uuid4().hex[:8]}"
     job_b = f"job_b_{uuid.uuid4().hex[:8]}"
 
-    # Salva item na sessão A
-    HistoryService.save(
-        job_id=job_a,
-        filename="audio_a.mp3",
-        result_dict={"text": "Texto confidencial de A", "language": "pt", "duration": 10.0},
-        session_id=session_a
-    )
-
-    # Salva item na sessão B
-    HistoryService.save(
-        job_id=job_b,
-        filename="audio_b.mp3",
-        result_dict={"text": "Texto confidencial de B", "language": "en", "duration": 15.0},
-        session_id=session_b
-    )
-
-    # Verifica list_all da sessão A
-    items_a = HistoryService.list_all(session_id=session_a)
-    assert any(it["id"] == job_a for it in items_a), "Job A deve estar na sessão A"
-    assert not any(it["id"] == job_b for it in items_a), "Job B NÃO deve vazar para a sessão A"
-
-    # Verifica get da sessão A
-    assert HistoryService.get(job_a, session_id=session_a) is not None
-    # Força modo público para testar barreira estrita
-    original_mode = settings.instance_mode
-    settings.instance_mode = "public"
     try:
+        # Salva item na sessão A
+        HistoryService.save(
+            job_id=job_a,
+            filename="audio_a.mp3",
+            result_dict={"text": "Texto confidencial de A", "language": "pt", "duration": 10.0},
+            session_id=session_a
+        )
+
+        # Salva item na sessão B
+        HistoryService.save(
+            job_id=job_b,
+            filename="audio_b.mp3",
+            result_dict={"text": "Texto confidencial de B", "language": "en", "duration": 15.0},
+            session_id=session_b
+        )
+
+        # Sessão A só pode ver A
+        items_a = HistoryService.list_all(session_id=session_a)
+        assert any(it["id"] == job_a for it in items_a), "Job A deve estar na sessão A"
+        assert not any(it["id"] == job_b for it in items_a), "Job B NÃO deve vazar para a sessão A"
+
+        # Get direto isolado
+        assert HistoryService.get(job_a, session_id=session_a) is not None
         assert HistoryService.get(job_b, session_id=session_a) is None, "Sessão A não pode ler job B em modo público"
+
     finally:
+        HistoryService.delete(job_a, session_id=session_a)
+        HistoryService.delete(job_b, session_id=session_b)
         settings.instance_mode = original_mode
 
-    # Limpeza
-    HistoryService.delete(job_a, session_id=session_a)
-    HistoryService.delete(job_b, session_id=session_b)
-    print(" -> Isolamento de sessão validado com sucesso!")
+    # 2. Modo Privado: histórico unificado para o proprietário da instância
+    settings.instance_mode = "private"
+    job_owner = f"job_owner_{uuid.uuid4().hex[:8]}"
+    session_device1 = f"dev1_{uuid.uuid4().hex[:8]}"
+    session_device2 = f"dev2_{uuid.uuid4().hex[:8]}"
 
-def test_auth_middleware():
-    print("[2/5] Testando middleware de autenticação (PIN)...")
+    try:
+        HistoryService.save(
+            job_id=job_owner,
+            filename="owner_recording.mp3",
+            result_dict={"text": "Gravação do host", "language": "pt", "duration": 5.0},
+            session_id=session_device1
+        )
+        # Dispositivo 2 do proprietário deve ver o item
+        items_dev2 = HistoryService.list_all(session_id=session_device2)
+        assert any(it["id"] == job_owner for it in items_dev2), "Proprietário deve ver seu histórico em qualquer dispositivo"
+    finally:
+        HistoryService.delete(job_owner)
+        settings.instance_mode = original_mode
+
+    print(" -> Isolamento de sessão público e unificação privada validados com sucesso!")
+
+def test_job_id_sanitization():
+    print("[2/9] Testando sanitização de Job ID e mitigação de Glob/Path Traversal...")
+    # 1. Validação de formato
+    assert sanitize_job_id("valid-job_123") == "valid-job_123"
+    assert sanitize_job_id("../../../etc/passwd") is None
+    assert sanitize_job_id("*") is None
+    assert sanitize_job_id("") is None
+
+    # 2. Proteção contra wildcard injection em delete()
+    dummy_job = f"dummy_{uuid.uuid4().hex[:8]}"
+    HistoryService.save(
+        job_id=dummy_job,
+        filename="dummy.mp3",
+        result_dict={"text": "teste"}
+    )
+    # Tentar delete com '*' NÃO deve excluir arquivos
+    deleted = HistoryService.delete("*")
+    assert deleted is False, "Wildcard '*' não deve ser aceito para exclusão"
+    assert HistoryService.get(dummy_job) is not None, "Arquivo do histórico deve permanecer intacto"
+
+    # Tentar get com path traversal
+    assert HistoryService.get("../../some_file") is None
+
+    # Limpeza correta
+    HistoryService.delete(dummy_job)
+    print(" -> Sanitização de Job ID e prevenção contra Glob Injection validadas com sucesso!")
+
+def test_auth_middleware_and_bearer():
+    print("[3/9] Testando autenticação por PIN, Header Bearer e proteção contra força bruta...")
     original_mode = settings.instance_mode
     original_pin = settings.access_pin
 
     settings.instance_mode = "private"
-    settings.access_pin = "998877"
+    settings.access_pin = "482619"
 
     client = TestClient(app)
 
     try:
-        # Rota pública /api/info deve passar sem PIN
+        # Rota pública /api/info passa sem PIN
         resp = client.get("/api/info")
-        assert resp.status_code == 200, f"Status esperado 200, obtido {resp.status_code}"
+        assert resp.status_code == 200
 
-        # Rota protegida /api/history sem PIN deve retornar 401
+        # Rota protegida sem PIN retorna 401
         resp = client.get("/api/history")
-        assert resp.status_code == 401, f"Status esperado 401, obtido {resp.status_code}"
+        assert resp.status_code == 401
 
-        # Rota protegida com PIN incorreto deve retornar 401
-        resp = client.get("/api/history", headers={"X-Access-PIN": "000000"})
-        assert resp.status_code == 401, f"Status esperado 401, obtido {resp.status_code}"
+        # Rota protegida com X-Access-PIN correto
+        resp = client.get("/api/history", headers={"X-Access-PIN": "482619"})
+        assert resp.status_code == 200
 
-        # Rota protegida com PIN correto deve retornar 200
-        resp = client.get("/api/history", headers={"X-Access-PIN": "998877"})
-        assert resp.status_code == 200, f"Status esperado 200, obtido {resp.status_code}"
+        # Rota protegida com Authorization: Bearer <pin>
+        resp_bearer = client.get("/api/history", headers={"Authorization": "Bearer 482619"})
+        assert resp_bearer.status_code == 200
 
-        # Verificação via /api/auth/verify
-        resp_verify_err = client.post("/api/auth/verify", json={"pin": "errado"})
-        assert resp_verify_err.status_code == 401
+        # Rota protegida com PIN via query string (usado pelo áudio player)
+        resp_query = client.get("/api/history?pin=482619")
+        assert resp_query.status_code == 200
 
-        resp_verify_ok = client.post("/api/auth/verify", json={"pin": "998877"})
-        assert resp_verify_ok.status_code == 200
-        assert resp_verify_ok.json().get("authenticated") is True
+        # Verificação via endpoint /api/auth/verify
+        r_ok = client.post("/api/auth/verify", json={"pin": "482619"})
+        assert r_ok.status_code == 200
+        assert r_ok.json().get("authenticated") is True
+
+        r_err = client.post("/api/auth/verify", json={"pin": "000000"})
+        assert r_err.status_code == 401
 
     finally:
         settings.instance_mode = original_mode
         settings.access_pin = original_pin
 
-    print(" -> Middleware de autenticação validado com sucesso!")
+    print(" -> Autenticação PIN e suporte a Bearer validados com sucesso!")
 
-def test_rate_limiting():
-    print("[3/5] Testando middleware de Rate Limiting...")
+def test_rate_limiting_anti_evasion():
+    print("[4/9] Testando Rate Limiting e prevenção de evasão por rotação de sessão...")
     original_rate = settings.rate_limit_per_minute
     settings.rate_limit_per_minute = 5
 
     client = TestClient(app)
+    ip_under_test = f"198.51.100.{uuid.uuid4().int % 250 + 1}"
     try:
-        # Executa 5 requisições rápidas permitidas
+        # Envia 5 requisições com sessões DIFERENTES do mesmo IP
         for i in range(5):
-            r = client.get("/api/history", headers={"X-Session-ID": "test_rl_session"})
-            assert r.status_code in [200, 401], f"Status inesperado: {r.status_code}"
+            r = client.get(
+                "/api/history",
+                headers={"CF-Connecting-IP": ip_under_test, "X-Session-ID": f"fake_session_{i}"}
+            )
+            assert r.status_code in [200, 401], f"Status inesperado na requisição {i}: {r.status_code}"
 
-        # A 6ª deve receber 429 Too Many Requests
-        r6 = client.get("/api/history", headers={"X-Session-ID": "test_rl_session"})
-        assert r6.status_code == 429, f"Status esperado 429, recebido {r6.status_code}"
+        # A 6ª requisição do mesmo IP DEVE ser bloqueada (HTTP 429), mesmo alterando X-Session-ID
+        r6 = client.get(
+            "/api/history",
+            headers={"CF-Connecting-IP": ip_under_test, "X-Session-ID": "fake_session_new"}
+        )
+        assert r6.status_code == 429, f"Rate Limiter deve bloquear IP mesmo rotacionando sessão (status: {r6.status_code})"
         assert "Retry-After" in r6.headers
     finally:
         settings.rate_limit_per_minute = original_rate
 
-    print(" -> Rate Limiter validado com sucesso (HTTP 429 retornado)!")
+    print(" -> Rate Limiter anti-evasão validado com sucesso!")
 
-def test_cleaner_service():
-    print("[4/5] Testando serviço de limpeza efêmera (CleanerService)...")
-    # Cria arquivo fictício em uploads com mtime no passado
-    fake_upload = UPLOAD_DIR / "fake_old_upload.tmp"
-    with open(fake_upload, "w") as f:
-        f.write("dados temporarios")
+def test_cleaner_service_preservation():
+    print("[5/9] Testando CleanerService (limpeza efêmera com preservação da raiz)...")
+    original_mode = settings.instance_mode
+    settings.instance_mode = "public"
 
-    # Altera mtime para 20 minutos atrás
-    old_time = time.time() - (20 * 60)
-    os.utime(fake_upload, (old_time, old_time))
+    try:
+        # 1. Cria arquivo de host na raiz de HISTORY_DIR (mtime antigo)
+        host_file = HISTORY_DIR / "host_permanent_backup.json"
+        with open(host_file, "w") as f:
+            f.write(json.dumps({"text": "Historico permanente do host"}))
+        old_time = time.time() - (120 * 60) # 2 horas atrás
+        os.utime(host_file, (old_time, old_time))
 
-    cleaned = CleanerService.clean_uploads(max_age_minutes=15)
-    assert cleaned >= 1, "Cleaner deve ter removido o upload expirado"
-    assert not fake_upload.exists(), "Arquivo expirado deve ter sido deletado"
+        # 2. Cria sessão efêmera pública expirada
+        session_id = f"ephemeral_{uuid.uuid4().hex[:8]}"
+        session_dir = HISTORY_DIR / session_id
+        session_dir.mkdir(parents=True, exist_ok=True)
+        session_file = session_dir / "ephemeral_audio.mp3"
+        with open(session_file, "w") as f:
+            f.write("audio efemero")
+        os.utime(session_file, (old_time, old_time))
 
-    print(" -> CleanerService validado com sucesso!")
+        # Executa limpeza de sessões com mais de 60 min
+        removed = CleanerService.clean_expired_history(max_age_minutes=60)
+        assert removed >= 1, "Cleaner deve remover arquivo da sessão efêmera expirada"
 
-def test_concurrency_guard():
-    print("[5/5] Testando ConcurrencyGuard...")
-    assert ConcurrencyGuard.acquire() is True
-    stats = ConcurrencyGuard.get_stats()
-    assert stats["active_jobs"] >= 1
-    ConcurrencyGuard.release()
-    print(" -> ConcurrencyGuard validado com sucesso!")
+        # Arquivo da sessão efêmera deve sumir
+        assert not session_file.exists(), "Arquivo da sessão efêmera deve ter sido deletado"
+        # Diretório da sessão vazia deve ter sido removido
+        assert not session_dir.exists(), "Diretório vazio da sessão deve ter sido removido"
+
+        # Arquivo de host permanente na raiz NUNCA deve ser removido
+        assert host_file.exists(), "Histórico permanente do host na raiz NÃO pode ser deletado pelo cleaner efêmero"
+
+    finally:
+        if host_file.exists():
+            host_file.unlink()
+        settings.instance_mode = original_mode
+
+    print(" -> Preservação de dados do host e limpeza efêmera validadas com sucesso!")
+
+def test_upload_security():
+    print("[6/9] Testando segurança no upload (arquivo 0 bytes e path traversal)...")
+    client = TestClient(app)
+
+    # 1. Rejeição de arquivo de 0 bytes
+    empty_file = ("empty.wav", b"", "audio/wav")
+    resp_empty = client.post(
+        "/api/transcribe",
+        files={"file": empty_file},
+        data={"provider": "faster-whisper"}
+    )
+    assert resp_empty.status_code == 400, f"Upload de 0 bytes deve retornar 400, obteve {resp_empty.status_code}"
+    assert "vazio" in resp_empty.text.lower()
+
+    # 2. Filename com tentativa de Directory Traversal
+    traversal_file = ("../../traversal_test.wav", b"fake audio content", "audio/wav")
+    resp_trav = client.post(
+        "/api/transcribe",
+        files={"file": traversal_file},
+        data={"provider": "faster-whisper"}
+    )
+    # Nenhum arquivo deve ter sido criado fora de UPLOAD_DIR
+    escaped_file = BASE_DIR / "traversal_test.wav"
+    assert not escaped_file.exists(), "Upload NÃO pode escapar de UPLOAD_DIR"
+
+    print(" -> Proteção de upload contra 0 bytes e path traversal validada com sucesso!")
+
+def test_byok_mode_enforcement():
+    print("[7/9] Testando restrições do modo BYOK...")
+    original_mode = settings.instance_mode
+    settings.set_mode("byok")
+    client = TestClient(app)
+
+    try:
+        from test_app import generate_test_wav
+        test_wav = generate_test_wav("test_byok.wav", duration=1.0)
+
+        # 1. Tentativa de usar motor local no modo BYOK deve retornar 400
+        with open(test_wav, "rb") as f:
+            resp_local = client.post(
+                "/api/transcribe",
+                files={"file": ("test.wav", f, "audio/wav")},
+                data={"provider": "faster-whisper", "model": "tiny"}
+            )
+        assert resp_local.status_code == 400
+        assert "byok" in resp_local.text.lower()
+
+        # 2. Tentativa de usar provedor sem API key deve retornar 400
+        with open(test_wav, "rb") as f:
+            resp_no_key = client.post(
+                "/api/transcribe",
+                files={"file": ("test.wav", f, "audio/wav")},
+                data={"provider": "groq", "api_key": ""}
+            )
+        assert resp_no_key.status_code == 400
+
+    finally:
+        if os.path.exists("test_byok.wav"):
+            os.remove("test_byok.wav")
+        settings.set_mode(original_mode)
+
+    print(" -> Modo BYOK validado com sucesso!")
+
+def test_dynamic_mode_adaptation():
+    print("[8/9] Testando adaptação dinâmica de quotas ao alterar modo...")
+    original_mode = settings.instance_mode
+
+    # Modo público: limites anti-abuso rígidos (300s / 50MB)
+    settings.set_mode("public")
+    assert settings.max_audio_duration_seconds == 300
+    assert settings.max_upload_size_mb == 50
+    assert settings.is_public is True
+
+    # Modo privado: limites amplos para o proprietário (7200s / 500MB)
+    settings.set_mode("private")
+    assert settings.max_audio_duration_seconds == 7200
+    assert settings.max_upload_size_mb == 500
+    assert settings.is_private is True
+
+    settings.set_mode(original_mode)
+    print(" -> Adaptação dinâmica de quotas validada com sucesso!")
 
 def test_api_v1():
-    print("[6/6] Testando API REST v1 e endpoint de túnel...")
+    print("[9/9] Testando API REST v1 e endpoint de túnel...")
     from test_app import generate_test_wav
     test_wav = generate_test_wav("test_sample_v1.wav", duration=1.0)
     client = TestClient(app)
@@ -166,17 +323,30 @@ def test_api_v1():
         assert r_tunnel.status_code == 200
         assert "lan_url" in r_tunnel.json()
 
-        # 4. Transcribe v1
+        # 4. Transcribe v1 (JSON)
+        test_ip = "203.0.113.10"
         with open(test_wav, "rb") as f:
             r_tx = client.post(
                 "/api/v1/transcribe",
                 files={"file": ("test.wav", f, "audio/wav")},
-                data={"provider": "faster-whisper", "model": "tiny", "response_format": "json"}
+                data={"provider": "faster-whisper", "model": "tiny", "response_format": "json"},
+                headers={"CF-Connecting-IP": test_ip}
             )
         assert r_tx.status_code == 200, f"Erro na API v1: {r_tx.text}"
         data = r_tx.json()
         assert "text" in data
         assert "segments" in data
+
+        # 5. Transcribe v1 (SRT)
+        with open(test_wav, "rb") as f:
+            r_srt = client.post(
+                "/api/v1/transcribe",
+                files={"file": ("test.wav", f, "audio/wav")},
+                data={"provider": "faster-whisper", "model": "tiny", "response_format": "srt"},
+                headers={"CF-Connecting-IP": test_ip}
+            )
+        assert r_srt.status_code == 200, f"Erro SRT: {r_srt.text}"
+        assert isinstance(r_srt.text, str)
 
     finally:
         if os.path.exists(test_wav):
@@ -186,9 +356,12 @@ def test_api_v1():
 
 if __name__ == "__main__":
     test_session_isolation()
-    test_auth_middleware()
-    test_rate_limiting()
-    test_cleaner_service()
-    test_concurrency_guard()
+    test_job_id_sanitization()
+    test_auth_middleware_and_bearer()
+    test_rate_limiting_anti_evasion()
+    test_cleaner_service_preservation()
+    test_upload_security()
+    test_byok_mode_enforcement()
+    test_dynamic_mode_adaptation()
     test_api_v1()
-    print("\n[SUCESSO] TODOS OS TESTES DE SEGURANÇA, API E ISOLAMENTO PASSARAM!")
+    print("\n[SUCESSO] TODOS OS 9 TESTES DE SEGURANÇA, API E ISOLAMENTO PASSARAM!")

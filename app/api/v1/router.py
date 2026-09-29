@@ -17,7 +17,7 @@ from app.core.config import (
 from app.services.transcriber import TranscriberService
 from app.services.history import sanitize_session_id
 from app.services.exporter import Exporter
-from app.engine.faster_whisper import get_audio_duration
+from app.services.concurrency import save_and_validate_upload
 
 router = APIRouter(prefix="/api/v1", tags=["API v1 (Pública)"])
 _START_TIME = time.time()
@@ -73,45 +73,23 @@ async def v1_transcribe(
     Endpoint padronizado da API REST v1 para bots (Discord, Telegram), automações e desenvolvedores.
     Aceita arquivo de áudio via multipart/form-data e retorna a transcrição no formato desejado.
     """
-    session_id = sanitize_session_id(x_session_id or request.cookies.get("session_id"))
-    job_id = str(uuid.uuid4())
-    temp_filename = f"v1_{job_id}_{file.filename}"
-    file_path = str(UPLOAD_DIR / temp_filename)
-
-    # 1. Valida tamanho do upload durante o streaming
-    max_bytes = settings.max_upload_size_mb * 1024 * 1024
-    total_bytes = 0
-
-    try:
-        with open(file_path, "wb") as buffer:
-            while chunk := await file.read(1024 * 1024):
-                total_bytes += len(chunk)
-                if total_bytes > max_bytes:
-                    buffer.close()
-                    if os.path.exists(file_path):
-                        os.remove(file_path)
-                    raise HTTPException(
-                        status_code=413,
-                        detail=f"Arquivo excede o tamanho máximo de {settings.max_upload_size_mb}MB permitido por esta instância."
-                    )
-                buffer.write(chunk)
-    except HTTPException:
-        raise
-    except Exception as e:
-        if os.path.exists(file_path):
-            os.remove(file_path)
-        raise HTTPException(status_code=500, detail=str(e))
-
-    # 2. Valida duração máxima do áudio
-    if settings.max_audio_duration_seconds > 0:
-        duration = get_audio_duration(file_path)
-        if duration > settings.max_audio_duration_seconds:
-            if os.path.exists(file_path):
-                os.remove(file_path)
+    prov_clean = (provider or "faster-whisper").lower().strip()
+    if settings.is_byok:
+        if prov_clean in ["faster-whisper", "local", "whisper.cpp", "whisper_cpp"]:
             raise HTTPException(
-                status_code=422,
-                detail=f"Duração do áudio ({duration:.1f}s) excede o limite máximo permitido de {settings.max_audio_duration_seconds}s para esta instância."
+                status_code=400,
+                detail="Esta instância opera no modo BYOK (Bring Your Own Key). Motores locais estão desabilitados pelo administrador. Selecione um provedor de Nuvem e forneça sua própria chave de API."
             )
+        if not api_key or not str(api_key).strip():
+            raise HTTPException(
+                status_code=400,
+                detail="Chave de API obrigatória no modo BYOK."
+            )
+
+    session_id = sanitize_session_id(
+        x_session_id or request.cookies.get("session_id") or request.query_params.get("session_id")
+    )
+    job_id, file_path = await save_and_validate_upload(file, prefix="v1")
 
     # 3. Executa transcrição
     try:

@@ -41,10 +41,17 @@ O formato é baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.
   - Modal de autenticação por PIN quando acessando uma instância protegida.
   - Redesign responsivo para telas móveis (360px a 900px), botões touch-friendly com área mínima de 44px e scrubber de áudio otimizado para toque.
 
-### 🛡️ Segurança
-- Sanitização de IDs de sessão com expressão regular estrita para evitar manipulação de caminhos (*Path Traversal*).
-- Bloqueio exponencial de tentativas incorretas de PIN por endereço IP.
-- Aborto antecipado de uploads que excedem o tamanho máximo durante a leitura de pedaços em disco (evita consumo indevido de banda e disco).
+### 🛡️ Segurança & Blindagem Anti-Abuso
+- **Sanitização Estrita de Job ID & Prevenção contra Injeção de Curingas**: Validação estrita por regex `^[a-zA-Z0-9_-]{1,64}$` impedindo que curingas (`*`) ou sequências de path traversal apaguem ou acessem dados indevidos.
+- **Preservação de Dados do Host**: O `CleanerService` atua exclusivamente sobre subdiretórios de sessões efêmeras em instâncias públicas, garantindo que o histórico permanente do proprietário na raiz de `exports/history/` nunca seja excluído acidentalmente.
+- **Unificação Inteligente em Modo Privado**: No modo privado, o histórico é compartilhado de forma transparente entre todos os dispositivos do proprietário (Desktop, Celular, etc.), enquanto no modo público há particionamento estrito com zero vazamento entre visitantes.
+- **Defesa contra Ataques de Temporização (*Timing Attacks*)**: Comparação de PIN realizada em tempo constante com `hmac.compare_digest`.
+- **Suporte ao Header `Authorization: Bearer <pin>`**: Permite que ferramentas de automação, scripts e bots consumam a API REST v1 de forma padronizada.
+- **Prevenção contra Evasão de Rate Limit por Rotação de Sessão**: Rate limiter ancorado no endereço IP do cliente (`cf-connecting-ip`, `x-forwarded-for` ou socket), impossibilitando que atacantes burlem limites forjando IDs de sessão aleatórios.
+- **Validação de Upload Aprimorada**: Rejeição imediata de arquivos vazios (0 bytes), sanitização de nomes de arquivos contra directory traversal e proteção de disco contra uploads gigantescos durante o streaming.
+- **Aplicação Estrita do Modo BYOK (*Bring Your Own Key*)**: Bloqueio ativo no backend e na interface de motores locais no modo BYOK, exigindo obrigatoriamente chave de API própria para provedores de nuvem (Groq/OpenAI/Gemini).
+- **Gerador de QR Code 100% Conforme ISO/IEC 18004**: Implementação matemática completa em JavaScript com GF(256), código corretor de erros Reed-Solomon e bits BCH, garantindo leitura instantânea por qualquer câmera de smartphone nativa.
+- **Playback de Áudio com Autenticação e Sessão**: Suporte a tokens via cookies e query parameters, viabilizando reprodução contínua em tags `<audio>` nativas do HTML5 mesmo com proteção por PIN ou sessões isoladas ativas.
 
 ---
 

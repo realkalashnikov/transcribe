@@ -130,6 +130,9 @@ document.addEventListener("DOMContentLoaded", () => {
             sid = "sess_" + (crypto.randomUUID ? crypto.randomUUID().replace(/-/g, "") : Math.random().toString(36).substring(2) + Date.now().toString(36));
             localStorage.setItem("transcribe_session_id", sid);
         }
+        try {
+            document.cookie = "session_id=" + encodeURIComponent(sid) + "; path=/; max-age=2592000; SameSite=Lax";
+        } catch(e) {}
         return sid;
     }
 
@@ -172,6 +175,9 @@ document.addEventListener("DOMContentLoaded", () => {
             });
             if (resp.ok) {
                 localStorage.setItem("transcribe_access_pin", pin);
+                try {
+                    document.cookie = "access_pin=" + encodeURIComponent(pin) + "; path=/; max-age=2592000; SameSite=Lax";
+                } catch(e) {}
                 showToast("Autenticado com sucesso via PIN!");
                 return true;
             } else {
@@ -276,6 +282,14 @@ document.addEventListener("DOMContentLoaded", () => {
                     instanceText.textContent = "Instância Privada";
                     instanceBadge.className = "badge badge-private";
                     instanceBadge.querySelector("[data-icon]").innerHTML = AppIcons.get("shield", "ui-icon ui-icon-sm");
+                }
+
+                // Em modo BYOK, oculta aba local e seleciona Nuvem
+                if (inst.instance_mode === "byok") {
+                    if (tabCloud) tabCloud.click();
+                    if (tabLocal) tabLocal.style.display = "none";
+                } else {
+                    if (tabLocal) tabLocal.style.display = "";
                 }
             }
 
@@ -420,11 +434,19 @@ document.addEventListener("DOMContentLoaded", () => {
             if (!resp.ok) throw new Error("Erro ao carregar item do histórico");
             const fullData = await resp.json();
 
+            const sid = getSessionId();
+            const pin = getAccessPin();
+            let audioSrc = `/api/history/${id}/audio`;
+            const q = new URLSearchParams();
+            if (sid) q.set("session_id", sid);
+            if (pin) q.set("pin", pin);
+            if (q.toString()) audioSrc += `?${q.toString()}`;
+
             state.activeItem = {
                 id: fullData.id,
                 filename: fullData.filename,
                 result: fullData,
-                audioUrl: `/api/history/${id}/audio`
+                audioUrl: audioSrc
             };
 
             showTranscriptionResult(state.activeItem);

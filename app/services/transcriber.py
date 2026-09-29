@@ -5,7 +5,7 @@ import shutil
 from typing import Dict, Any, Optional
 from pathlib import Path
 
-from app.config import UPLOAD_DIR
+from app.config import UPLOAD_DIR, settings
 from app.engine.base import BaseTranscriber, TranscriptionResult
 from app.engine.faster_whisper import FasterWhisperTranscriber
 from app.engine.cloud_apis import CloudTranscriber
@@ -56,6 +56,12 @@ class TranscriberService:
         try:
             TranscriberService.update_job(job_id, status="processing", progress=5.0, message="Iniciando processamento...")
             provider_clean = (provider or "faster-whisper").lower().strip()
+
+            if settings.is_byok:
+                if provider_clean in ["faster-whisper", "local", "whisper.cpp", "whisper_cpp"]:
+                    raise ValueError("Instância em modo BYOK: motores locais estão desabilitados pelo administrador.")
+                if not api_key:
+                    raise ValueError("Instância em modo BYOK: forneça sua própria chave de API para o provedor selecionado.")
 
             if provider_clean in ["faster-whisper", "local"]:
                 engine = FasterWhisperTranscriber(model_size=model or "base")

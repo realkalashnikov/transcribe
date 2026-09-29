@@ -54,19 +54,7 @@ class CleanerService:
         if not HISTORY_DIR.exists():
             return 0
 
-        # 1. Limpa arquivos soltos na raiz de history (caso público)
-        if settings.is_public:
-            for file_path in HISTORY_DIR.glob("*"):
-                if file_path.is_file() and not file_path.name.startswith("."):
-                    try:
-                        mtime = file_path.stat().st_mtime
-                        if (now - mtime) > max_age_seconds:
-                            file_path.unlink()
-                            removed += 1
-                    except Exception as e:
-                        print(f"[Cleaner] Falha ao remover item de histórico raiz {file_path.name}: {e}")
-
-        # 2. Limpa subpastas de sessões
+        # Limpa exclusivamente subpastas de sessões efêmeras (preservando o histórico permanente do host na raiz)
         for session_dir in HISTORY_DIR.iterdir():
             if not session_dir.is_dir():
                 continue

@@ -52,6 +52,9 @@ class Settings:
         if self.access_pin:
             self.access_pin = self.access_pin.strip()
 
+        self._env_has_max_duration = "MAX_AUDIO_DURATION_SECONDS" in os.environ
+        self._env_has_max_upload = "MAX_UPLOAD_SIZE_MB" in os.environ
+
         # Limites Anti-Abuso
         default_max_duration = 300 if self.instance_mode in ["public", "byok"] else 7200
         self.max_audio_duration_seconds: int = int(os.getenv("MAX_AUDIO_DURATION_SECONDS", str(default_max_duration)))
@@ -73,6 +76,16 @@ class Settings:
 
         # Cloudflare Tunnel
         self.enable_tunnel: bool = os.getenv("ENABLE_TUNNEL", "false").lower() in ["true", "1", "yes"]
+
+    def set_mode(self, mode: str):
+        """Atualiza o modo da instância e recalcula limites padrão se não definidos em .env."""
+        mode_clean = (mode or "private").lower().strip()
+        if mode_clean in ["private", "public", "byok"]:
+            self.instance_mode = mode_clean
+            if not self._env_has_max_duration:
+                self.max_audio_duration_seconds = 300 if self.is_public else 7200
+            if not self._env_has_max_upload:
+                self.max_upload_size_mb = 50 if self.is_public else 500
 
     @property
     def is_public(self) -> bool:

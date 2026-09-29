@@ -47,10 +47,10 @@ if __name__ == "__main__":
     settings.host = args.host
 
     if args.public:
-        settings.instance_mode = "public"
+        settings.set_mode("public")
         settings.enable_tunnel = True
     elif args.mode:
-        settings.instance_mode = args.mode
+        settings.set_mode(args.mode)
 
     if args.share or args.tunnel:
         settings.enable_tunnel = True

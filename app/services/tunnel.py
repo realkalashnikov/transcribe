@@ -138,9 +138,16 @@ class TunnelService:
         thread_err.start()
         thread_out.start()
 
-        # Aguarda captura da URL
-        success = url_found_event.wait(timeout=timeout)
-        if success and extracted_url[0]:
+        # Aguarda captura da URL verificando término prematuro do processo
+        deadline = time.time() + timeout
+        while time.time() < deadline:
+            if url_found_event.wait(timeout=0.4):
+                break
+            if process.poll() is not None:
+                print(f"[Tunnel] Processo cloudflared encerrou prematuramente (código: {process.returncode}).")
+                break
+
+        if extracted_url[0]:
             cls._public_url = extracted_url[0]
             cls._is_starting = False
             return cls._public_url

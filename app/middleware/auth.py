@@ -1,4 +1,5 @@
 import time
+import hmac
 import threading
 from typing import Dict, Tuple
 from fastapi import Request, Response
@@ -88,14 +89,20 @@ class AuthMiddleware(BaseHTTPMiddleware):
                 headers={"Retry-After": str(remaining)}
             )
 
-        # Busca o PIN no header, cookie ou query string
+        # Busca o PIN no header (X-Access-PIN ou Bearer), cookie ou query string
+        auth_header = request.headers.get("authorization", "")
+        bearer_pin = None
+        if auth_header.lower().startswith("bearer "):
+            bearer_pin = auth_header[7:].strip()
+
         provided_pin = (
             request.headers.get("x-access-pin")
+            or bearer_pin
             or request.cookies.get("access_pin")
             or request.query_params.get("pin")
         )
 
-        if not provided_pin or provided_pin.strip() != settings.access_pin.strip():
+        if not provided_pin or not hmac.compare_digest(provided_pin.strip(), settings.access_pin.strip()):
             record_pin_failure(client_ip)
             return JSONResponse(
                 status_code=401,

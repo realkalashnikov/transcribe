@@ -34,11 +34,12 @@ from app.core.config import (
     SUPPORTED_LANGUAGES,
     settings
 )
+import hmac
 from app.services.transcriber import TranscriberService
 from app.services.history import HistoryService, sanitize_session_id
 from app.services.cleaner import CleanerService
 from app.services.tunnel import TunnelService
-from app.services.concurrency import ConcurrencyGuard, validate_upload_size, validate_audio_duration
+from app.services.concurrency import ConcurrencyGuard, save_and_validate_upload
 from app.engine.faster_whisper import get_audio_duration
 from app.middleware.rate_limit import RateLimiterMiddleware
 from app.middleware.auth import AuthMiddleware, is_pin_locked, record_pin_failure, reset_pin_failures
@@ -80,8 +81,12 @@ if STATIC_DIR.exists():
 app.include_router(api_v1_router)
 
 def resolve_session_id(x_session_id: Optional[str], request: Request) -> Optional[str]:
-    """Obtém e valida o session_id de headers ou cookies."""
-    cand = x_session_id or request.cookies.get("session_id")
+    """Obtém e valida o session_id de headers, cookies ou query parameters (para tags de áudio)."""
+    cand = (
+        x_session_id
+        or request.cookies.get("session_id")
+        or request.query_params.get("session_id")
+    )
     return sanitize_session_id(cand)
 
 @app.get("/")
@@ -136,7 +141,7 @@ async def verify_auth(request: Request):
         pass
 
     pin = data.get("pin") or request.query_params.get("pin")
-    if not pin or str(pin).strip() != settings.access_pin.strip():
+    if not pin or not hmac.compare_digest(str(pin).strip(), settings.access_pin.strip()):
         count, lockout = record_pin_failure(client_ip)
         if lockout > 0:
             raise HTTPException(
@@ -147,48 +152,6 @@ async def verify_auth(request: Request):
 
     reset_pin_failures(client_ip)
     return {"authenticated": True, "token": settings.access_pin, "mode": settings.instance_mode}
-
-async def _save_and_validate_upload(file: UploadFile) -> str:
-    """Salva o upload em disco validando tamanho máximo e duração do áudio."""
-    job_id = str(uuid.uuid4())
-    temp_filename = f"{job_id}_{file.filename}"
-    file_path = str(UPLOAD_DIR / temp_filename)
-
-    max_bytes = settings.max_upload_size_mb * 1024 * 1024
-    total_bytes = 0
-
-    try:
-        with open(file_path, "wb") as buffer:
-            while chunk := await file.read(1024 * 1024):
-                total_bytes += len(chunk)
-                if total_bytes > max_bytes:
-                    buffer.close()
-                    if os.path.exists(file_path):
-                        os.remove(file_path)
-                    raise HTTPException(
-                        status_code=413,
-                        detail=f"Arquivo excede o tamanho máximo permitido de {settings.max_upload_size_mb}MB para esta instância."
-                    )
-                buffer.write(chunk)
-    except HTTPException:
-        raise
-    except Exception as e:
-        if os.path.exists(file_path):
-            os.remove(file_path)
-        raise HTTPException(status_code=500, detail=str(e))
-
-    # Validação de duração máxima
-    if settings.max_audio_duration_seconds > 0:
-        duration = get_audio_duration(file_path)
-        if duration > settings.max_audio_duration_seconds:
-            if os.path.exists(file_path):
-                os.remove(file_path)
-            raise HTTPException(
-                status_code=422,
-                detail=f"Duração do áudio ({duration:.1f}s) excede o limite máximo permitido de {settings.max_audio_duration_seconds}s para esta instância."
-            )
-
-    return job_id, file_path
 
 @app.post("/api/transcribe")
 async def transcribe_file(
@@ -202,8 +165,21 @@ async def transcribe_file(
     x_session_id: Optional[str] = Header(None)
 ):
     """Endpoint síncrono para transcrição com validação de quotas e isolamento de sessão."""
+    prov_clean = (provider or "faster-whisper").lower().strip()
+    if settings.is_byok:
+        if prov_clean in ["faster-whisper", "local", "whisper.cpp", "whisper_cpp"]:
+            raise HTTPException(
+                status_code=400,
+                detail="Esta instância opera no modo BYOK (Bring Your Own Key). Motores locais estão desabilitados pelo administrador. Selecione um provedor de Nuvem e forneça sua própria chave de API."
+            )
+        if not api_key or not str(api_key).strip():
+            raise HTTPException(
+                status_code=400,
+                detail="Chave de API obrigatória no modo BYOK."
+            )
+
     session_id = resolve_session_id(x_session_id, request)
-    job_id, file_path = await _save_and_validate_upload(file)
+    job_id, file_path = await save_and_validate_upload(file)
 
     try:
         result = TranscriberService.execute_transcription(
@@ -239,8 +215,21 @@ async def create_transcription_job(
     x_session_id: Optional[str] = Header(None)
 ):
     """Endpoint assíncrono para processamento em background com acompanhamento e quotas."""
+    prov_clean = (provider or "faster-whisper").lower().strip()
+    if settings.is_byok:
+        if prov_clean in ["faster-whisper", "local", "whisper.cpp", "whisper_cpp"]:
+            raise HTTPException(
+                status_code=400,
+                detail="Esta instância opera no modo BYOK (Bring Your Own Key). Motores locais estão desabilitados pelo administrador. Selecione um provedor de Nuvem e forneça sua própria chave de API."
+            )
+        if not api_key or not str(api_key).strip():
+            raise HTTPException(
+                status_code=400,
+                detail="Chave de API obrigatória no modo BYOK."
+            )
+
     session_id = resolve_session_id(x_session_id, request)
-    job_id, file_path = await _save_and_validate_upload(file)
+    job_id, file_path = await save_and_validate_upload(file)
 
     background_tasks.add_task(
         TranscriberService.execute_transcription,
