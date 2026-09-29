@@ -72,18 +72,43 @@ Você verá um menu simples:
 
 ### Pela Linha de Comando (CLI)
 ```bash
-# 1. Modo Local Padrão
+# 1. Modo Local Padrão (Apenas no PC)
 python run.py
 
-# 2. Modo Celular / Acesso Remoto (Túnel HTTPS + QR Code)
-python run.py --share
-
-# 3. Modo Instância Pública (Aberta ao mundo, quotas ativas)
+# 2. Modo Servidor / VPS / Amigos (Aberto na rede 0.0.0.0, com histórico isolado por pessoa)
+# Basta apontar seu domínio (ex: transcreve.seusite.com) para o IP da sua VPS!
 python run.py --public
 
-# 4. Modo Privado com PIN Personalizado
-python run.py --share --pin 123456
+# 3. Modo com Túnel Cloudflare (Opcional - para quem está em casa sem IP público / Celular)
+python run.py --tunnel
+
+# 4. Modo Protegido com PIN personalizado
+python run.py --pin 123456
 ```
+
+---
+
+## 🌐 Como Hospedar na Internet
+
+Você tem duas formas muito simples de disponibilizar o Transcribe Studio para outras pessoas:
+
+### Opção A: Em uma VPS ou Servidor com IP Público (Recomendado)
+Se você tem uma VPS (Hetzner, DigitalOcean, Oracle Cloud, etc.):
+1. Execute `python run.py --public` (o servidor escuta em `0.0.0.0:8000`).
+2. No seu painel de DNS, crie um apontamento tipo **A** apontando seu domínio/subdomínio para o IP da sua VPS.
+3. *(Opcional)* Coloque um reverse proxy como Caddy ou Nginx na frente para HTTPS automático:
+   ```caddy
+   transcribe.seusite.com {
+       reverse_proxy localhost:8000
+   }
+   ```
+4. **Pronto!** Amigos e visitantes podem acessar livremente. Cada visitante tem seu histórico isolado de forma silenciosa e permanente no próprio navegador — sem necessidade de login ou senhas.
+
+### Opção B: Direto do seu Computador de Casa (Sem abrir portas)
+Se você quer rodar no seu PC gamer/desktop e liberar para amigos ou acessar pelo celular na rua:
+1. Execute `python run.py --tunnel`.
+2. O sistema iniciará automaticamente um túnel seguro Cloudflare HTTPS (`*.trycloudflare.com`) e exibirá um QR Code para você escanear.
+3. Não precisa mexer no roteador nem ter IP fixo!
 
 ---
 

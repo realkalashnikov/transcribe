@@ -8,20 +8,21 @@ O formato é baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.
 ## [1.1.0] - 2026-09-29
 
 ### 🚀 Adicionado
-- **Suporte a Instâncias Auto-Hospedadas & Públicas (Estilo Cobalt / Monochrome)**:
+- **Suporte a Instâncias Auto-Hospedadas (VPS com Domínio ou Túnel Cloudflare)**:
   - Novo módulo de configurações centralizadas em `app/core/config.py` com suporte completo a `.env` sem dependências externas.
-  - Modos de instância configuráveis: `private` (uso fechado com PIN opcional), `public` (aberto para visitantes) e `byok` (*Bring Your Own Key*).
-  - Parâmetros anti-abuso configuráveis: `MAX_AUDIO_DURATION_SECONDS` (padrão 5 min em público), `MAX_UPLOAD_SIZE_MB`, `MAX_CONCURRENT_JOBS` e limites de requisições.
-- **Isolamento de Sessão & Privacidade Efêmera**:
-  - Sessão única por visitante via cabeçalho/cookie `X-Session-ID` com sanitização estrita contra *directory traversal*.
-  - Particionamento de diretórios de histórico por sessão em `exports/history/{session_id}/`, garantindo que nenhum visitante enxergue o histórico de outro.
-  - Serviço de limpeza em segundo plano `CleanerService` (`app/services/cleaner.py`) que roda periodicamente para expirar e excluir áudios e transcrições antigos após 60 minutos em instâncias públicas.
+  - Modos de instância configuráveis: `private` (uso pessoal com PIN opcional), `public` (aberto para amigos/rede) e `byok` (*Bring Your Own Key*).
+  - Parâmetros anti-abuso configuráveis: `MAX_AUDIO_DURATION_SECONDS`, `MAX_UPLOAD_SIZE_MB`, `MAX_CONCURRENT_JOBS` e limites de requisições.
+  - Hospedagem nativa em VPS: basta rodar `python run.py --public` ouvindo em `0.0.0.0:8000` e apontar o domínio. O Cloudflare Tunnel é uma ferramenta estritamente opcional (`--tunnel`) para quem está no PC de casa sem IP público.
+- **Histórico Persistente com Isolamento Silencioso (Zero Burocracia)**:
+  - Cada visitante/dispositivo possui seu identificador único no `localStorage` (`session_id`).
+  - Cada usuário acessa apenas suas próprias transcrições e áudios, gravados permanentemente no servidor sem serem excluídos após 1 hora.
+  - Nenhuma exigência de login, email ou senhas burocráticas para amigos.
 - **Escudo de Segurança & Anti-Abuso**:
-  - Middleware de Rate Limiting em memória (`app/middleware/rate_limit.py`) com janelas deslizantes por IP e Sessão, retornando HTTP 429 e cabeçalho `Retry-After`.
-  - Middleware de Autenticação (`app/middleware/auth.py`) com suporte a PIN de acesso e proteção ativa contra ataques de força bruta (bloqueio temporário após 5 falhas consecutivas).
+  - Middleware de Rate Limiting em memória (`app/middleware/rate_limit.py`) ancorado no IP real do cliente.
+  - Middleware de Autenticação (`app/middleware/auth.py`) com suporte a PIN opcional.
   - Controle de concorrência com semáforo em thread (`app/services/concurrency.py`) para evitar estouro de memória GPU/CPU.
   - Validação antecipada de tamanho de arquivo durante o streaming e validação de duração máxima via PyAV.
-- **Túnel Cloudflare Integrado (Acesso Remoto & Celular)**:
+- **Túnel Cloudflare Opcional (Para Celular e Casa sem IP Fixo)**:
   - Módulo `TunnelService` (`app/services/tunnel.py`) com download automático do binário oficial `cloudflared` caso não esteja instalado.
   - Descoberta automática de IP local da máquina na rede Wi-Fi / Ethernet via socket UDP.
   - Inicialização de túnel rápido HTTPS temporário (`*.trycloudflare.com`) sem necessidade de conta ou abertura de portas no roteador.
