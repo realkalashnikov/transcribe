@@ -96,6 +96,11 @@ def serve_index():
         return FileResponse(index_file)
     return {"message": "Transcribe Studio API ativa"}
 
+@app.get("/health", tags=["Health Check"])
+def health_check():
+    """Health check endpoint para monitoramento e Docker."""
+    return {"status": "ok", "mode": settings.instance_mode}
+
 @app.get("/favicon.ico", include_in_schema=False)
 async def favicon():
     return Response(status_code=204)

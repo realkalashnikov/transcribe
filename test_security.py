@@ -173,7 +173,9 @@ def test_auth_middleware_and_bearer():
 def test_rate_limiting_anti_evasion():
     print("[4/9] Testando Rate Limiting e prevenção de evasão por rotação de sessão...")
     original_rate = settings.rate_limit_per_minute
+    original_mode = settings.instance_mode
     settings.rate_limit_per_minute = 5
+    settings.instance_mode = "public"
 
     client = TestClient(app)
     ip_under_test = f"198.51.100.{uuid.uuid4().int % 250 + 1}"
@@ -195,6 +197,7 @@ def test_rate_limiting_anti_evasion():
         assert "Retry-After" in r6.headers
     finally:
         settings.rate_limit_per_minute = original_rate
+        settings.instance_mode = original_mode
 
     print(" -> Rate Limiter anti-evasão validado com sucesso!")
 

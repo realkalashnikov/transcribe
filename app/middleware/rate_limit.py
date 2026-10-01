@@ -56,15 +56,22 @@ class RateLimiterMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next) -> Response:
         path = request.url.path
 
-        # Rotas isentas de rate limiting
+        # Em modo privado ou chamadas locais de loopback, dispensa rate limit
+        client_ip = self._get_client_ip(request)
+        is_loopback = client_ip in ["127.0.0.1", "::1", "localhost", "testclient"]
+        if settings.is_private or is_loopback:
+            return await call_next(request)
+
+        # Rotas isentas de rate limiting (assets, status e polling de status de job)
         if (
             path.startswith("/static/")
+            or path.startswith("/api/jobs/")
             or path in ["/favicon.ico", "/docs", "/openapi.json", "/api/info", "/api/v1/status"]
             or request.method == "OPTIONS"
         ):
             return await call_next(request)
 
-        client_key = self._get_client_ip(request)
+        client_key = client_ip
         now = time.time()
 
         with self._lock:
