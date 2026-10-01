@@ -26,6 +26,7 @@ class BaseTranscriber(ABC):
         file_path: str,
         language: Optional[str] = None,
         task: str = "transcribe",
+        prompt: Optional[str] = None,
         progress_callback: Optional[Callable[[float, str], None]] = None,
         **kwargs
     ) -> TranscriptionResult:

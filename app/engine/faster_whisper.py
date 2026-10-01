@@ -65,6 +65,7 @@ class FasterWhisperTranscriber(BaseTranscriber):
         file_path: str,
         language: Optional[str] = None,
         task: str = "transcribe",
+        prompt: Optional[str] = None,
         progress_callback: Optional[Callable[[float, str], None]] = None,
         **kwargs
     ) -> TranscriptionResult:
@@ -80,11 +81,13 @@ class FasterWhisperTranscriber(BaseTranscriber):
         # faster-whisper aceita diretamente o caminho do arquivo
         # e decodifica internamente com PyAV
         lang_arg = language if (language and language.strip() and language.strip().lower() != "auto") else None
+        prompt_arg = (prompt.strip()[:500]) if (prompt and prompt.strip()) else None
 
         segments_generator, info = model.transcribe(
             file_path,
             language=lang_arg,
             task=task,
+            initial_prompt=prompt_arg,
             beam_size=kwargs.get("beam_size", 5),
             word_timestamps=kwargs.get("word_timestamps", False)
         )

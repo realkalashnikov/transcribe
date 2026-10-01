@@ -216,6 +216,7 @@ async def create_transcription_job(
     model: Optional[str] = Form(None),
     language: Optional[str] = Form(None),
     task: str = Form("transcribe"),
+    prompt: Optional[str] = Form(None),
     api_key: Optional[str] = Form(None),
     x_session_id: Optional[str] = Header(None)
 ):
@@ -234,6 +235,7 @@ async def create_transcription_job(
             )
 
     session_id = resolve_session_id(x_session_id, request)
+    clean_prompt = prompt.strip()[:500] if prompt and prompt.strip() else None
     job_id, file_path = await save_and_validate_upload(file)
 
     background_tasks.add_task(
@@ -244,6 +246,7 @@ async def create_transcription_job(
         model=model,
         language=language,
         task=task,
+        prompt=clean_prompt,
         api_key=api_key,
         original_filename=file.filename,
         session_id=session_id

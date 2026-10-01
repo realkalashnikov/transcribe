@@ -36,6 +36,7 @@ class TranscriberService:
         model: Optional[str] = None,
         language: Optional[str] = None,
         task: str = "transcribe",
+        prompt: Optional[str] = None,
         api_key: Optional[str] = None,
         original_filename: Optional[str] = None,
         session_id: Optional[str] = None
@@ -78,6 +79,7 @@ class TranscriberService:
                 file_path=file_path,
                 language=language,
                 task=task,
+                prompt=prompt,
                 progress_callback=on_progress
             )
 

@@ -47,6 +47,7 @@ class WhisperCppTranscriber(BaseTranscriber):
         file_path: str,
         language: Optional[str] = None,
         task: str = "transcribe",
+        prompt: Optional[str] = None,
         progress_callback: Optional[Callable[[float, str], None]] = None,
         **kwargs
     ) -> TranscriptionResult:
@@ -74,12 +75,18 @@ class WhisperCppTranscriber(BaseTranscriber):
         translate_flag = (task == "translate")
 
         try:
-            # Transcreve com pywhispercpp
-            segments_output = model.transcribe(
-                target_file,
-                language=lang,
-                translate=translate_flag
-            )
+            transcribe_kwargs = {
+                "language": lang,
+                "translate": translate_flag
+            }
+            if prompt and prompt.strip():
+                transcribe_kwargs["initial_prompt"] = prompt.strip()[:500]
+
+            try:
+                segments_output = model.transcribe(target_file, **transcribe_kwargs)
+            except TypeError:
+                transcribe_kwargs.pop("initial_prompt", None)
+                segments_output = model.transcribe(target_file, **transcribe_kwargs)
 
             segments_list = []
             full_text_parts = []

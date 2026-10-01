@@ -58,6 +58,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const apiKeyLink = document.getElementById("api-key-link");
     const audioLanguageSelect = document.getElementById("audio-language");
     const audioTaskSelect = document.getElementById("audio-task");
+    const initialPromptInput = document.getElementById("initial-prompt");
 
     const dropzone = document.getElementById("dropzone");
     const fileInput = document.getElementById("file-input");
@@ -1093,6 +1094,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
         formData.append("language", audioLanguageSelect.value);
         formData.append("task", audioTaskSelect.value);
+        if (initialPromptInput && initialPromptInput.value.trim()) {
+            formData.append("prompt", initialPromptInput.value.trim());
+        }
 
         const jobResp = await apiRequest("/api/jobs", {
             method: "POST",

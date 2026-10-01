@@ -26,18 +26,21 @@ class CloudTranscriber(BaseTranscriber):
         file_path: str,
         language: Optional[str] = None,
         task: str = "transcribe",
+        prompt: Optional[str] = None,
         progress_callback: Optional[Callable[[float, str], None]] = None,
         **kwargs
     ) -> TranscriptionResult:
         if not self.api_key:
             raise ValueError(f"A chave de API para o provedor '{self.provider}' não foi fornecida.")
 
+        clean_prompt = (prompt.strip()[:500]) if (prompt and prompt.strip()) else None
+
         if self.provider == "groq":
-            return self._transcribe_groq(file_path, language, progress_callback)
+            return self._transcribe_groq(file_path, language, clean_prompt, progress_callback)
         elif self.provider == "openai":
-            return self._transcribe_openai(file_path, language, progress_callback)
+            return self._transcribe_openai(file_path, language, clean_prompt, progress_callback)
         elif self.provider == "gemini":
-            return self._transcribe_gemini(file_path, language, progress_callback)
+            return self._transcribe_gemini(file_path, language, clean_prompt, progress_callback)
         else:
             raise ValueError(f"Provedor desconhecido: {self.provider}")
 
@@ -45,6 +48,7 @@ class CloudTranscriber(BaseTranscriber):
         self,
         file_path: str,
         language: Optional[str],
+        prompt: Optional[str],
         progress_callback: Optional[Callable[[float, str], None]]
     ) -> TranscriptionResult:
         if progress_callback:
@@ -65,6 +69,8 @@ class CloudTranscriber(BaseTranscriber):
         }
         if language and language.strip().lower() != "auto":
             data["language"] = language.strip()
+        if prompt:
+            data["prompt"] = prompt
 
         if progress_callback:
             progress_callback(40.0, f"Processando transcrição na Groq ({model_name})...")
@@ -88,6 +94,7 @@ class CloudTranscriber(BaseTranscriber):
         self,
         file_path: str,
         language: Optional[str],
+        prompt: Optional[str],
         progress_callback: Optional[Callable[[float, str], None]]
     ) -> TranscriptionResult:
         if progress_callback:
@@ -108,6 +115,8 @@ class CloudTranscriber(BaseTranscriber):
         }
         if language and language.strip().lower() != "auto":
             data["language"] = language.strip()
+        if prompt:
+            data["prompt"] = prompt
 
         if progress_callback:
             progress_callback(40.0, "Processando transcrição na OpenAI...")
@@ -174,6 +183,7 @@ class CloudTranscriber(BaseTranscriber):
         self,
         file_path: str,
         language: Optional[str],
+        prompt: Optional[str],
         progress_callback: Optional[Callable[[float, str], None]]
     ) -> TranscriptionResult:
         model_name = self.model or "gemini-2.5-flash"
@@ -199,8 +209,9 @@ class CloudTranscriber(BaseTranscriber):
         mime_type = mime_map.get(ext, "audio/mp3")
 
         lang_instruction = f" no idioma {language}" if (language and language.strip().lower() != "auto") else ""
-        prompt = (
-            f"Transcreva este arquivo de áudio com alta fidelidade{lang_instruction}. "
+        prompt_instruction = f" Considere o seguinte contexto ou vocabulário especializado: {prompt}." if prompt else ""
+        system_instruction = (
+            f"Transcreva este arquivo de áudio com alta fidelidade{lang_instruction}.{prompt_instruction} "
             "Retorne a resposta estritamente em formato JSON com o seguinte esquema: "
             "{\"language\": \"código_do_idioma_ex_pt\", \"segments\": [{\"id\": 1, \"start\": 0.0, \"end\": 3.5, \"text\": \"texto do trecho\"}]}"
         )
@@ -209,7 +220,7 @@ class CloudTranscriber(BaseTranscriber):
         payload = {
             "contents": [{
                 "parts": [
-                    {"text": prompt},
+                    {"text": system_instruction},
                     {
                         "inline_data": {
                             "mime_type": mime_type,

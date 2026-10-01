@@ -65,6 +65,7 @@ async def v1_transcribe(
     model: Optional[str] = Form(None, description="Tamanho do modelo (tiny, base, small, medium, large-v3)"),
     language: Optional[str] = Form(None, description="Código de idioma (ex: pt, en) ou vazio para auto-detecção"),
     task: str = Form("transcribe", description="transcribe ou translate"),
+    prompt: Optional[str] = Form(None, description="Vocabulário custom, termos técnicos ou contexto inicial (até 500 caracteres)"),
     api_key: Optional[str] = Form(None, description="Chave de API se usar provedores de nuvem"),
     response_format: str = Form("json", description="Formato da resposta: json, text, srt, vtt"),
     x_session_id: Optional[str] = Header(None, description="ID de sessão isolada opcional")
@@ -89,6 +90,7 @@ async def v1_transcribe(
     session_id = sanitize_session_id(
         x_session_id or request.cookies.get("session_id") or request.query_params.get("session_id")
     )
+    clean_prompt = prompt.strip()[:500] if prompt and prompt.strip() else None
     job_id, file_path = await save_and_validate_upload(file, prefix="v1")
 
     # 3. Executa transcrição
@@ -100,6 +102,7 @@ async def v1_transcribe(
             model=model,
             language=language,
             task=task,
+            prompt=clean_prompt,
             api_key=api_key,
             original_filename=file.filename,
             session_id=session_id
