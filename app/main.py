@@ -258,6 +258,58 @@ def get_job_status(job_id: str):
         raise HTTPException(status_code=404, detail="Job não encontrado")
     return job
 
+@app.get("/api/jobs/{job_id}/stream")
+async def stream_job_status(job_id: str, request: Request):
+    """Server-Sent Events (SSE) para stream de status em tempo real sem polling."""
+    import asyncio
+    import json
+    from starlette.responses import StreamingResponse
+
+    job = TranscriberService.get_job(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Job não encontrado")
+
+    async def event_generator():
+        last_progress = None
+        last_status = None
+        # Timeout de segurança: 30 minutos
+        start_time = asyncio.get_event_loop().time()
+        while True:
+            if await request.is_disconnected():
+                break
+
+            current_job = TranscriberService.get_job(job_id)
+            if not current_job:
+                break
+
+            progress = current_job.get("progress")
+            status = current_job.get("status")
+
+            # Emite evento apenas se houver mudança de estado ou na primeira iteração
+            if progress != last_progress or status != last_status:
+                last_progress = progress
+                last_status = status
+                payload = json.dumps(current_job)
+                yield f"data: {payload}\n\n"
+
+            if status in ["completed", "error"]:
+                break
+
+            if asyncio.get_event_loop().time() - start_time > 1800:
+                break
+
+            await asyncio.sleep(0.35)
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no"
+        }
+    )
+
 @app.get("/api/history")
 def get_history(request: Request, x_session_id: Optional[str] = Header(None)):
     """Retorna transcrições salvas respeitando o isolamento da sessão do usuário."""

@@ -1106,30 +1106,75 @@ document.addEventListener("DOMContentLoaded", () => {
 
         const { job_id } = await jobResp.json();
 
+        // 1. Tenta SSE (Server-Sent Events) para conexão única sem spam de requisições
         return new Promise((resolve, reject) => {
-            const interval = setInterval(async () => {
-                try {
-                    const statusResp = await apiRequest(`/api/jobs/${job_id}`);
-                    if (!statusResp.ok) {
-                        clearInterval(interval);
-                        return reject(new Error("Erro ao obter status do trabalho."));
-                    }
+            let finished = false;
+            let eventSource = null;
 
-                    const data = await statusResp.json();
-                    showProgress(data.message || "Processando...", data.progress || 0);
-
-                    if (data.status === "completed") {
-                        clearInterval(interval);
-                        resolve(data.result);
-                    } else if (data.status === "error") {
-                        clearInterval(interval);
-                        reject(new Error(data.error || "Erro durante a transcrição"));
-                    }
-                } catch (e) {
-                    clearInterval(interval);
-                    reject(e);
+            const cleanup = () => {
+                finished = true;
+                if (eventSource) {
+                    eventSource.close();
+                    eventSource = null;
                 }
-            }, 700);
+            };
+
+            const fallbackPolling = () => {
+                cleanup();
+                const interval = setInterval(async () => {
+                    try {
+                        const statusResp = await apiRequest(`/api/jobs/${job_id}`);
+                        if (!statusResp.ok) {
+                            clearInterval(interval);
+                            return reject(new Error("Erro ao obter status do trabalho."));
+                        }
+                        const data = await statusResp.json();
+                        showProgress(data.message || "Processando...", data.progress || 0);
+
+                        if (data.status === "completed") {
+                            clearInterval(interval);
+                            resolve(data.result);
+                        } else if (data.status === "error") {
+                            clearInterval(interval);
+                            reject(new Error(data.error || "Erro durante a transcrição"));
+                        }
+                    } catch (e) {
+                        clearInterval(interval);
+                        reject(e);
+                    }
+                }, 1500);
+            };
+
+            if (typeof EventSource !== "undefined") {
+                const sseUrl = `${API_BASE}/api/jobs/${job_id}/stream`;
+                eventSource = new EventSource(sseUrl);
+
+                eventSource.onmessage = (event) => {
+                    if (finished) return;
+                    try {
+                        const data = JSON.parse(event.data);
+                        showProgress(data.message || "Processando...", data.progress || 0);
+
+                        if (data.status === "completed") {
+                            cleanup();
+                            resolve(data.result);
+                        } else if (data.status === "error") {
+                            cleanup();
+                            reject(new Error(data.error || "Erro durante a transcrição"));
+                        }
+                    } catch (err) {
+                        console.error("Erro ao processar evento SSE:", err);
+                    }
+                };
+
+                eventSource.onerror = () => {
+                    if (finished) return;
+                    // Em caso de falha no SSE (ex: proxy incompatível), cai graciosamente no polling lento
+                    fallbackPolling();
+                };
+            } else {
+                fallbackPolling();
+            }
         });
     }
 
