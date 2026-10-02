@@ -102,7 +102,8 @@ class TranscriberService:
                         "id": s.id,
                         "start": s.start,
                         "end": s.end,
-                        "text": s.text
+                        "text": s.text,
+                        "words": getattr(s, "words", None)
                     }
                     for s in result.segments
                 ],

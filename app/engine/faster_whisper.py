@@ -89,7 +89,7 @@ class FasterWhisperTranscriber(BaseTranscriber):
             task=task,
             initial_prompt=prompt_arg,
             beam_size=kwargs.get("beam_size", 5),
-            word_timestamps=kwargs.get("word_timestamps", False)
+            word_timestamps=kwargs.get("word_timestamps", True)
         )
 
         detected_language = info.language
@@ -100,11 +100,23 @@ class FasterWhisperTranscriber(BaseTranscriber):
         seg_idx = 1
 
         for seg in segments_generator:
+            words_list = None
+            if hasattr(seg, "words") and seg.words:
+                words_list = [
+                    {
+                        "word": w.word,
+                        "start": round(w.start, 2),
+                        "end": round(w.end, 2),
+                        "probability": round(w.probability, 2) if hasattr(w, "probability") and w.probability is not None else 1.0
+                    }
+                    for w in seg.words
+                ]
             segment_item = TranscriptionSegment(
                 id=seg_idx,
                 start=round(seg.start, 2),
                 end=round(seg.end, 2),
-                text=seg.text.strip()
+                text=seg.text.strip(),
+                words=words_list
             )
             segments_list.append(segment_item)
             full_text_parts.append(seg.text.strip())
