@@ -195,3 +195,58 @@ class HistoryService:
                 pass
 
         return success
+
+    @staticmethod
+    def update(
+        job_id: str,
+        updated_segments: Optional[List[Dict[str, Any]]] = None,
+        updated_text: Optional[str] = None,
+        session_id: Optional[str] = None
+    ) -> Optional[Dict[str, Any]]:
+        """Atualiza o conteúdo de uma transcrição existente e recalcula exportações."""
+        safe_job = sanitize_job_id(job_id)
+        if not safe_job:
+            return None
+
+        item = HistoryService.get(safe_job, session_id=session_id)
+        if not item:
+            return None
+
+        from app.services.exporter import format_timestamp_srt, format_timestamp_vtt
+
+        if updated_segments is not None:
+            item["segments"] = updated_segments
+            item["text"] = " ".join(seg.get("text", "").strip() for seg in updated_segments if seg.get("text"))
+        elif updated_text is not None:
+            item["text"] = updated_text.strip()
+
+        # Recalcula exports
+        segments = item.get("segments", [])
+        srt_lines = []
+        vtt_lines = ["WEBVTT", ""]
+        for i, seg in enumerate(segments, 1):
+            s_start = format_timestamp_srt(seg.get("start", 0))
+            s_end = format_timestamp_srt(seg.get("end", 0))
+            v_start = format_timestamp_vtt(seg.get("start", 0))
+            v_end = format_timestamp_vtt(seg.get("end", 0))
+            txt = seg.get("text", "").strip()
+
+            srt_lines.extend([str(i), f"{s_start} --> {s_end}", txt, ""])
+            vtt_lines.extend([f"{v_start} --> {v_end}", txt, ""])
+
+        item["exports"] = {
+            "txt": item["text"],
+            "srt": "\n".join(srt_lines).strip(),
+            "vtt": "\n".join(vtt_lines).strip(),
+            "json": json.dumps(item, ensure_ascii=False, indent=2)
+        }
+
+        target_dir = get_session_dir(session_id)
+        file_path = target_dir / f"{safe_job}.json"
+        if not file_path.exists() and (HISTORY_DIR / f"{safe_job}.json").exists():
+            file_path = HISTORY_DIR / f"{safe_job}.json"
+
+        with open(file_path, "w", encoding="utf-8") as f:
+            json.dump(item, f, ensure_ascii=False, indent=2)
+
+        return item
