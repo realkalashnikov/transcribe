@@ -44,6 +44,9 @@ from app.engine.faster_whisper import get_audio_duration
 from app.middleware.rate_limit import RateLimiterMiddleware
 from app.middleware.auth import AuthMiddleware, is_pin_locked, record_pin_failure, reset_pin_failures
 from app.api.v1 import api_v1_router
+from pydantic import BaseModel
+from app.services.downloader import MediaDownloader, SSRFError
+from app.services.llm_actions import LLMActionService
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -358,3 +361,196 @@ def delete_history_item(job_id: str, request: Request, x_session_id: Optional[st
     if not success:
         raise HTTPException(status_code=404, detail="Não foi possível excluir o item do histórico")
     return {"success": True, "message": "Item removido do histórico"}
+
+class UrlIngestRequest(BaseModel):
+    url: str
+    provider: str = "faster-whisper"
+    model: Optional[str] = None
+    language: Optional[str] = None
+    task: str = "transcribe"
+    prompt: Optional[str] = None
+    api_key: Optional[str] = None
+
+class SummarizeRequest(BaseModel):
+    job_id: Optional[str] = None
+    text: Optional[str] = None
+    action: str = "summary"
+    target_language: str = "pt"
+    provider: Optional[str] = None
+    api_key: Optional[str] = None
+    model: Optional[str] = None
+
+class HistoryUpdateRequest(BaseModel):
+    text: Optional[str] = None
+    segments: Optional[list] = None
+
+@app.post("/api/ingest/url")
+async def ingest_url(
+    req: UrlIngestRequest,
+    background_tasks: BackgroundTasks,
+    request: Request,
+    x_session_id: Optional[str] = Header(None)
+):
+    """Baixa áudio de URL pública (YouTube, etc.) com escudo anti-SSRF e enfileira transcrição."""
+    prov_clean = (req.provider or "faster-whisper").lower().strip()
+    if settings.is_byok:
+        if prov_clean in ["faster-whisper", "local", "whisper.cpp", "whisper_cpp"]:
+            raise HTTPException(
+                status_code=400,
+                detail="Esta instância opera no modo BYOK. Motores locais estão desabilitados."
+            )
+        if not req.api_key or not str(req.api_key).strip():
+            raise HTTPException(
+                status_code=400,
+                detail="Chave de API obrigatória no modo BYOK."
+            )
+
+    session_id = resolve_session_id(x_session_id, request)
+
+    try:
+        media_info = MediaDownloader.download_url(req.url)
+    except SSRFError as e:
+        raise HTTPException(status_code=400, detail=f"Bloqueio de Segurança (SSRF): {e}")
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro ao processar URL: {e}")
+
+    job_id = str(uuid.uuid4())
+    file_path = media_info["file_path"]
+    clean_title = media_info["title"] + Path(file_path).suffix
+
+    clean_prompt = req.prompt.strip()[:500] if req.prompt and req.prompt.strip() else None
+
+    # Registra o job inicial
+    background_tasks.add_task(
+        TranscriberService.execute_transcription,
+        job_id=job_id,
+        file_path=file_path,
+        provider=req.provider,
+        model=req.model,
+        language=req.language,
+        task=req.task,
+        prompt=clean_prompt,
+        api_key=req.api_key,
+        original_filename=clean_title,
+        session_id=session_id
+    )
+
+    return {
+        "job_id": job_id,
+        "filename": clean_title,
+        "status": "queued",
+        "duration": media_info.get("duration", 0),
+        "source": "url"
+    }
+
+@app.post("/api/summarize")
+async def summarize_transcript(
+    req: SummarizeRequest,
+    request: Request,
+    x_session_id: Optional[str] = Header(None)
+):
+    """Executa ações com LLM (Resumo, Ata, Tópicos, Tradução) sobre uma transcrição."""
+    text = req.text
+    if not text and req.job_id:
+        session_id = resolve_session_id(x_session_id, request)
+        item = HistoryService.get(req.job_id, session_id=session_id)
+        if not item:
+            raise HTTPException(status_code=404, detail="Transcrição não encontrada no histórico.")
+        text = item.get("text", "")
+
+    if not text or not str(text).strip():
+        raise HTTPException(status_code=400, detail="Texto vazio ou não fornecido.")
+
+    try:
+        res = LLMActionService.process_action(
+            text=text,
+            action=req.action,
+            target_language=req.target_language,
+            provider=req.provider,
+            api_key=req.api_key,
+            model=req.model
+        )
+        return res
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro no processamento LLM: {e}")
+
+@app.put("/api/history/{job_id}")
+def update_history_item(
+    job_id: str,
+    req: HistoryUpdateRequest,
+    request: Request,
+    x_session_id: Optional[str] = Header(None)
+):
+    """Atualiza o conteúdo de uma transcrição existente (Edição Inline)."""
+    session_id = resolve_session_id(x_session_id, request)
+    updated = HistoryService.update(
+        job_id=job_id,
+        updated_segments=req.segments,
+        updated_text=req.text,
+        session_id=session_id
+    )
+    if not updated:
+        raise HTTPException(status_code=404, detail="Transcrição não encontrada para atualização.")
+    return {"success": True, "item": updated}
+
+class RomanizeRequest(BaseModel):
+    text: Optional[str] = None
+    language: Optional[str] = None
+    segments: Optional[list] = None
+
+@app.post("/api/romanize")
+def romanize_transcript(req: RomanizeRequest):
+    """Gera transliteração/romanização fonética para idiomas como Japonês, Chinês e Russo."""
+    from app.services.transliteration import TransliterationService
+    lang = req.language or "ja"
+    rom_text = TransliterationService.romanize(req.text or "", language=lang)
+    rom_segs = None
+    if req.segments:
+        rom_segs = TransliterationService.romanize_segments(req.segments, language=lang)
+    return {
+        "language": lang,
+        "romanized_text": rom_text,
+        "segments": rom_segs
+    }
+
+@app.get("/api/history/{job_id}/export/video")
+def export_muxed_video(
+    job_id: str,
+    background_tasks: BackgroundTasks,
+    request: Request,
+    x_session_id: Optional[str] = Header(None)
+):
+    """Gera contêiner MP4 com legenda SRT embutida via stream mov_text."""
+    from app.services.video_muxer import VideoMuxer
+    session_id = resolve_session_id(x_session_id, request)
+    item = HistoryService.get(job_id, session_id=session_id)
+    if not item:
+        raise HTTPException(status_code=404, detail="Transcrição não encontrada")
+
+    audio_path = HistoryService.get_audio_path(job_id, session_id=session_id)
+    if not audio_path or not audio_path.exists():
+        raise HTTPException(status_code=404, detail="Arquivo original de mídia não encontrado para muxing")
+
+    exports = item.get("exports") or {}
+    srt_content = exports.get("srt")
+    if not srt_content:
+        raise HTTPException(status_code=400, detail="Legenda SRT indisponível para esta transcrição")
+
+    try:
+        muxed_path = VideoMuxer.mux_subtitles(str(audio_path), srt_content)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Falha ao embutir legendas: {e}")
+
+    background_tasks.add_task(lambda p: os.path.exists(p) and os.remove(p), muxed_path)
+
+    orig_name = item.get("filename") or "video"
+    base_name = Path(orig_name).stem
+    return FileResponse(
+        muxed_path,
+        media_type="video/mp4",
+        filename=f"{base_name}_legendado.mp4"
+    )
