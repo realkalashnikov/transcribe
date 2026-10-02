@@ -236,8 +236,25 @@ document.addEventListener("DOMContentLoaded", () => {
                     audioTotalTime.textContent = "01:18";
                     audioCurrentTime.textContent = "00:00";
                     playBtnIcon.innerHTML = AppIcons.get("play", "ui-icon");
+
+                    // Preenche exemplo visual de Resumo com IA para preview
+                    const outBox = document.getElementById("llm-output-box");
+                    const outTitle = document.getElementById("llm-output-title");
+                    const outContent = document.getElementById("llm-output-content");
+                    if (outBox && outContent) {
+                        outBox.classList.remove("hidden");
+                        outTitle.innerHTML = `<span data-icon="fileText" data-icon-class="ui-icon ui-icon-sm"></span> 📝 Resumo Executivo (Groq / Llama-3.3-70B)`;
+                        outContent.innerHTML = `<strong>Visão Geral do Episódio:</strong>\n• <strong>Arquitetura Local:</strong> Apresentação do faster-whisper com quantização int8, alcançando processamento 4x mais rápido na CPU com consumo mínimo de RAM.\n• <strong>Privacidade & Segurança:</strong> Transcrição e arquivos persistidos 100% no disco local, sem dependência de nuvem ou vazamento de dados.\n• <strong>Novos Recursos:</strong> Demonstração de sincronização por palavra (Karaoke), edição inline e ingestão direta de links do YouTube com proteção anti-SSRF.\n\n<strong>Ações & Próximos Passos:</strong>\n1. Validar suporte para novos idiomas e romanização fonética automática.\n2. Expandir exportações para contêineres MP4 com legendas embutidas.`;
+                    }
                 }
             }
+        }
+
+        if (params.get("tab") === "url") {
+            const tabUrl = document.getElementById("tab-dropzone-url");
+            if (tabUrl) tabUrl.click();
+            const urlInput = document.getElementById("web-url-input");
+            if (urlInput) urlInput.value = "https://www.youtube.com/watch?v=dQw4w9WgXcQ";
         }
 
         if (params.get("story")) {

@@ -32,7 +32,25 @@ def seed_demo_history():
                 "id": 1,
                 "start": 0.0,
                 "end": 6.2,
-                "text": "Sejam todos muito bem-vindos a mais um episódio do nosso podcast sobre tecnologia e inteligência artificial."
+                "text": "Sejam todos muito bem-vindos a mais um episódio do nosso podcast sobre tecnologia e inteligência artificial.",
+                "words": [
+                    {"word": "Sejam", "start": 0.0, "end": 0.4},
+                    {"word": "todos", "start": 0.45, "end": 0.8},
+                    {"word": "muito", "start": 0.85, "end": 1.2},
+                    {"word": "bem-vindos", "start": 1.25, "end": 1.8},
+                    {"word": "a", "start": 1.85, "end": 2.0},
+                    {"word": "mais", "start": 2.05, "end": 2.3},
+                    {"word": "um", "start": 2.35, "end": 2.5},
+                    {"word": "episódio", "start": 2.55, "end": 3.1},
+                    {"word": "do", "start": 3.15, "end": 3.3},
+                    {"word": "nosso", "start": 3.35, "end": 3.6},
+                    {"word": "podcast", "start": 3.65, "end": 4.2},
+                    {"word": "sobre", "start": 4.25, "end": 4.6},
+                    {"word": "tecnologia", "start": 4.65, "end": 5.3},
+                    {"word": "e", "start": 5.35, "end": 5.5},
+                    {"word": "inteligência", "start": 5.55, "end": 6.0},
+                    {"word": "artificial.", "start": 6.05, "end": 6.2}
+                ]
             },
             {
                 "id": 2,
@@ -101,6 +119,24 @@ def main():
         ]
         subprocess.run(edge_cmd1, check=True)
         print(" -> preview.png capturado!")
+
+        # 1.5 Aba de Ingestão por Link da Web
+        url_png = SCREENSHOTS_DIR / "url_ingestion.png"
+        print(f"[*] Capturando aba de ingestão por URL em {url_png}...")
+        edge_cmd_url = [
+            EDGE_PATH,
+            "--headless",
+            "--disable-gpu",
+            "--no-first-run",
+            "--no-default-browser-check",
+            "--hide-scrollbars",
+            "--window-size=1600,1200",
+            "--force-device-scale-factor=1.15",
+            f"--screenshot={str(url_png)}",
+            "http://127.0.0.1:8008/?tab=url"
+        ]
+        subprocess.run(edge_cmd_url, check=True)
+        print(" -> url_ingestion.png capturado!")
 
         # 2. Feed Format com Transcrição ativa e Player de Áudio
         print(f"[4/7] Capturando transcrição ativa em {transcription_png} (Feed 1600x1200)...")
