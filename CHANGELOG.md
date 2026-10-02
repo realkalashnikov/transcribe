@@ -5,6 +5,33 @@ O formato é baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.
 
 ---
 
+## [1.3.0] - 2026-10-02
+
+### 🚀 Adicionado
+- **Ingestão Direta por URL com Escudo Anti-SSRF** (`app/services/downloader.py`, `POST /api/ingest/url`):
+  - Permite colar links diretos do YouTube, Twitter/X, SoundCloud e streams de áudio/vídeo para transcrição automática via `yt-dlp`.
+  - Escudo de segurança anti-SSRF com resolução prévia de DNS e bloqueio rigoroso de redes privadas (RFC 1918: `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`), loopbacks (`127.0.0.0/8`), link-local (`169.254.0.0/16`, cloud metadata AWS/GCP) e portas não padrão.
+- **Resumo e Ações Pós-Transcrição com IA / LLMs** (`app/services/llm_actions.py`, `POST /api/summarize`):
+  - Botões de um clique na interface: 📝 **Resumo Executivo**, 📋 **Ata & Próximos Passos**, 🎯 **Tópicos Principais**, 🌐 **Tradução Direta**.
+  - Suporte multi-provedor nativo: Groq (`llama-3.3-70b-versatile`), Google Gemini (`gemini-2.5-flash`), OpenAI (`gpt-4o-mini`) e Ollama local (`llama3.2`) 100% offline.
+  - Painel com renderização de resposta, destaque e botão para cópia instantânea.
+- **Timestamps Clicáveis & Karaoke Word-Level em Tempo Real**:
+  - Habilitação de timestamps a nível de palavra (`word_timestamps=True`) no faster-whisper.
+  - O player de áudio integrado sincroniza a palavra exata falada em tempo real com realce luminoso suave.
+  - Clicar em qualquer palavra ou timestamp pula imediatamente o player para o trecho exato correspondente.
+- **Edição Inline de Transcrição no Navegador com Salvamento Permanente**:
+  - Correção de textos e termos técnicos diretamente na interface web via `contenteditable`.
+  - Botão *"Salvar Revisão"* que persiste as alterações no disco permanentemente via `PUT /api/history/{job_id}` e recalcula automaticamente as exportações TXT, SRT, VTT e JSON.
+- **Romanização / Transliteração Fonética para Idiomas Globais** (`app/services/transliteration.py`, `POST /api/romanize`):
+  - Suporte para Japonês (Romaji Hepburn via `pykakasi`), Chinês (Pinyin com acentos tonais via `pypinyin`) e Cirílico (Russo/Ucraniano).
+  - Botão de alternância *"Romanização"* que exibe a leitura fonética em itálico abaixo dos ideogramas originais.
+- **Mux de Legendas em Vídeo MP4 sem Perda** (`app/services/video_muxer.py`, `GET /api/history/{job_id}/export/video`):
+  - Integração com `imageio-ffmpeg` para embutir legendas SRT como stream `mov_text` em contêineres MP4 por cópia direta de stream sem recodificação de vídeo.
+- **Nova Suite de Testes Automatizados** (`test_advanced_features.py`):
+  - Testes cobrindo anti-SSRF, ações LLM, edição inline no disco, romanização fonética e detecção de muxer de vídeo.
+
+---
+
 ## [1.2.0] - 2026-09-29
 
 ### 🚀 Adicionado

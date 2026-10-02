@@ -59,6 +59,14 @@
 - **Decodificação Nativa via PyAV**: Suporta MP3, WAV, M4A, OGG, FLAC, MP4, MKV, WebM, etc. sem depender do `ffmpeg.exe` externo.
 - **Nuvem Opcional**: Groq (Whisper-large-v3 ultra-rápido), OpenAI (Whisper-1) e Gemini 2.5 Flash.
 
+### 🔗 Ingestão por URL & Inteligência Artificial
+- **Ingestão Web com Escudo Anti-SSRF**: Cole links do YouTube, SoundCloud, Twitter/X ou podcasts para transcrição direta com um clique sem precisar baixar o arquivo manualmente.
+- **Resumos e Atas com LLMs**: Gere Resumos Executivos, Atas com Próximos Passos, Tópicos Principais e Traduções instantâneas usando Groq (Llama-3.3-70B), Gemini, OpenAI ou Ollama local (100% offline).
+- **Timestamps Clicáveis & Karaoke Word-Level**: Navegue pelo áudio clicando em qualquer palavra e acompanhe o realce iluminado sincronizado em tempo real.
+- **Edição Inline com Persistência no Disco**: Corrija palavras diretamente no navegador e salve com um clique (`PUT /api/history/{id}`) — as legendas SRT, VTT, TXT e JSON são recalculadas automaticamente.
+- **Romanização Fonética**: Visualize a leitura no alfabeto latino (Romaji Hepburn para Japonês, Pinyin com tons para Chinês, Cirílico para Russo) em itálico abaixo do texto original.
+- **Mux de Legendas em MP4**: Baixe o vídeo original com legendas SRT embutidas via `mov_text` sem re-codificação de vídeo.
+
 ---
 
 ## 🚀 Como Iniciar
