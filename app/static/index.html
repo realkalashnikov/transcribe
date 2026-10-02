@@ -146,8 +146,19 @@
                     </div>
                 </div>
 
-                <!-- Área de Drag & Drop -->
+                <!-- Área de Drag & Drop e Ingestão por URL -->
                 <div class="card dropzone-card">
+                    <div class="dropzone-tabs">
+                        <button type="button" class="dropzone-tab-btn active" id="tab-dropzone-file">
+                            <span data-icon="fileAudio" data-icon-class="ui-icon ui-icon-sm"></span>
+                            <span>Arquivo Local</span>
+                        </button>
+                        <button type="button" class="dropzone-tab-btn" id="tab-dropzone-url">
+                            <span data-icon="link" data-icon-class="ui-icon ui-icon-sm"></span>
+                            <span>Link Web (YouTube / X)</span>
+                        </button>
+                    </div>
+
                     <div class="dropzone" id="dropzone">
                         <input type="file" id="file-input" multiple accept="audio/*,video/*" class="file-input">
                         <div class="dropzone-content">
@@ -155,6 +166,22 @@
                             <h4>Arraste arquivos aqui</h4>
                             <p>ou <span class="browse-link">procure no computador</span></p>
                             <span class="file-formats">MP3, WAV, M4A, OGG, FLAC, MP4, MKV, WebM...</span>
+                        </div>
+                    </div>
+
+                    <div class="url-ingest-container hidden" id="url-ingest-container">
+                        <div class="url-dropzone-content">
+                            <div class="upload-icon-box" data-icon="globe" data-icon-class="ui-icon ui-icon-lg"></div>
+                            <h4>Transcrever via Link Web</h4>
+                            <p class="url-hint">Cole a URL de um vídeo ou áudio da internet</p>
+                            <div class="url-input-group">
+                                <input type="url" id="web-url-input" class="form-control" placeholder="https://www.youtube.com/watch?v=...">
+                                <button type="button" id="web-url-btn" class="btn btn-primary">
+                                    <span data-icon="download" data-icon-class="ui-icon ui-icon-sm"></span>
+                                    <span>Baixar e Iniciar</span>
+                                </button>
+                            </div>
+                            <span class="file-formats">YouTube, Twitter/X, SoundCloud e streams de áudio/vídeo</span>
                         </div>
                     </div>
                 </div>
@@ -239,7 +266,12 @@
                                 </span>
                             </div>
                         </div>
-                        <div class="export-actions" id="export-actions" style="display: none;">
+                            <button type="button" class="btn btn-sm btn-primary hidden" id="save-edit-btn" title="Salvar alterações no disco">
+                                <span data-icon="save" data-icon-class="ui-icon ui-icon-sm"></span> Salvar Revisão
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline hidden" id="toggle-romanize-btn" title="Mostrar/Ocultar Romanização Fonética">
+                                <span data-icon="globe" data-icon-class="ui-icon ui-icon-sm"></span> Romanização
+                            </button>
                             <button type="button" class="btn btn-sm btn-outline" id="copy-btn" title="Copiar texto puro">
                                 <span data-icon="copy" data-icon-class="ui-icon ui-icon-sm"></span> Copiar
                             </button>
@@ -315,7 +347,67 @@
                         <div class="placeholder-state">
                             <div class="placeholder-icon" data-icon="fileText" data-icon-class="ui-icon ui-icon-xl"></div>
                             <p>Selecione um arquivo de áudio ou vídeo e clique em "Iniciar Transcrição" para ver o texto com minutagem interativa aqui.</p>
+                    </div>
+                </div>
+
+                <!-- Painel de Ações Inteligentes com IA -->
+                <div class="card llm-actions-card hidden" id="llm-actions-card">
+                    <div class="card-header-flex">
+                        <div class="card-title">
+                            <span data-icon="zap" data-icon-class="ui-icon"></span>
+                            <span>Ações Inteligentes com IA</span>
                         </div>
+                        <div class="llm-header-right">
+                            <select id="llm-provider-select" class="form-control form-control-sm">
+                                <option value="groq" selected>Groq (Llama-3.3-70b)</option>
+                                <option value="gemini">Gemini 2.5 Flash</option>
+                                <option value="openai">OpenAI (GPT-4o-mini)</option>
+                                <option value="ollama">Ollama Local (Offline)</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="llm-buttons-bar">
+                        <button type="button" class="btn btn-sm btn-outline llm-action-btn" data-action="summary">
+                            <span data-icon="fileText" data-icon-class="ui-icon ui-icon-sm"></span>
+                            <span>Resumo Executivo</span>
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline llm-action-btn" data-action="action_items">
+                            <span data-icon="check" data-icon-class="ui-icon ui-icon-sm"></span>
+                            <span>Ata & Próximos Passos</span>
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline llm-action-btn" data-action="bullet_points">
+                            <span data-icon="layers" data-icon-class="ui-icon ui-icon-sm"></span>
+                            <span>Pontos Principais</span>
+                        </button>
+                        <div class="llm-translate-inline">
+                            <button type="button" class="btn btn-sm btn-outline llm-action-btn" data-action="translate">
+                                <span data-icon="globe" data-icon-class="ui-icon ui-icon-sm"></span>
+                                <span>Traduzir</span>
+                            </button>
+                            <select id="llm-target-lang" class="form-control form-control-sm">
+                                <option value="pt" selected>Português</option>
+                                <option value="en">Inglês</option>
+                                <option value="es">Espanhol</option>
+                                <option value="fr">Francês</option>
+                                <option value="de">Alemão</option>
+                                <option value="ja">Japonês</option>
+                                <option value="zh">Chinês</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div id="llm-output-box" class="llm-output-box hidden">
+                        <div class="llm-output-header">
+                            <span class="llm-output-title" id="llm-output-title">Resultado</span>
+                            <div class="llm-output-tools">
+                                <button type="button" class="btn-text btn-sm" id="copy-llm-btn" title="Copiar">
+                                    <span data-icon="copy" data-icon-class="ui-icon ui-icon-sm"></span> Copiar
+                                </button>
+                                <button type="button" class="btn-text btn-sm" id="close-llm-btn" title="Fechar">
+                                    <span data-icon="x" data-icon-class="ui-icon ui-icon-sm"></span>
+                                </button>
+                            </div>
+                        </div>
+                        <div id="llm-output-content" class="llm-output-content"></div>
                     </div>
                 </div>
             </section>

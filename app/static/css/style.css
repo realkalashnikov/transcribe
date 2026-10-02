@@ -1428,6 +1428,204 @@ body.story-mode .queue-card {
     color: var(--text-muted);
 }
 
+/* Dropzone Tabs */
+.dropzone-tabs {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 12px;
+    border-bottom: 1px solid var(--border-subtle);
+    padding-bottom: 8px;
+}
+
+.dropzone-tab-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border: none;
+    background: transparent;
+    color: var(--text-dim);
+    font-size: 0.82rem;
+    font-weight: 500;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: var(--transition);
+}
+
+.dropzone-tab-btn:hover {
+    color: var(--text-main);
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.dropzone-tab-btn.active {
+    color: var(--primary);
+    background: rgba(99, 102, 241, 0.12);
+}
+
+/* URL Ingest Area */
+.url-ingest-container {
+    padding: 24px 16px;
+    border: 2px dashed var(--border-subtle);
+    border-radius: var(--radius-sm);
+    text-align: center;
+    background: rgba(255, 255, 255, 0.01);
+}
+
+.url-dropzone-content h4 {
+    margin: 8px 0 4px;
+    font-size: 0.95rem;
+    color: var(--text-main);
+}
+
+.url-hint {
+    font-size: 0.82rem;
+    color: var(--text-dim);
+    margin-bottom: 14px;
+}
+
+.url-input-group {
+    display: flex;
+    gap: 8px;
+    max-width: 540px;
+    margin: 0 auto 12px;
+}
+
+.url-input-group input {
+    flex: 1;
+}
+
+/* Word-Level Karaoke */
+.karaoke-word {
+    display: inline-block;
+    padding: 1px 3px;
+    border-radius: 3px;
+    cursor: pointer;
+    transition: background-color 0.15s ease, color 0.15s ease, transform 0.15s ease;
+}
+
+.karaoke-word:hover {
+    background: rgba(99, 102, 241, 0.2);
+}
+
+.karaoke-word.active {
+    background: var(--primary);
+    color: #ffffff;
+    font-weight: 600;
+    transform: scale(1.05);
+    box-shadow: 0 0 10px rgba(99, 102, 241, 0.5);
+}
+
+/* Segment text editable */
+.segment-text {
+    outline: none;
+    border-radius: 4px;
+    padding: 2px 4px;
+    transition: background 0.15s ease;
+}
+
+.segment-text:hover {
+    background: rgba(255, 255, 255, 0.03);
+}
+
+.segment-text:focus {
+    background: rgba(99, 102, 241, 0.08);
+    box-shadow: 0 0 0 1px var(--primary);
+}
+
+/* Romanização */
+.romanized-text {
+    display: block;
+    margin-top: 4px;
+    font-size: 0.85rem;
+    font-style: italic;
+    color: #94a3b8;
+    line-height: 1.4;
+}
+
+/* LLM Actions Card */
+.llm-actions-card {
+    margin-top: 18px;
+    border-color: rgba(99, 102, 241, 0.25);
+    background: linear-gradient(180deg, rgba(30, 41, 59, 0.7) 0%, rgba(15, 23, 42, 0.9) 100%);
+}
+
+.llm-header-right select {
+    font-size: 0.78rem;
+    padding: 4px 8px;
+    height: auto;
+}
+
+.llm-buttons-bar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 12px;
+    align-items: center;
+}
+
+.llm-action-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.8rem;
+    padding: 6px 12px;
+}
+
+.llm-translate-inline {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.llm-translate-inline select {
+    font-size: 0.78rem;
+    padding: 4px 8px;
+    height: auto;
+    width: auto;
+}
+
+.llm-output-box {
+    margin-top: 14px;
+    padding: 14px;
+    background: var(--bg-input);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-sm);
+    animation: fadeIn 0.2s ease-out;
+}
+
+.llm-output-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid var(--border-subtle);
+    padding-bottom: 8px;
+    margin-bottom: 10px;
+}
+
+.llm-output-title {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--primary);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.llm-output-tools {
+    display: flex;
+    gap: 6px;
+}
+
+.llm-output-content {
+    font-size: 0.88rem;
+    line-height: 1.6;
+    color: var(--text-main);
+    white-space: pre-wrap;
+    word-break: break-word;
+    max-height: 350px;
+    overflow-y: auto;
+}
+
 .hidden {
     display: none !important;
 }

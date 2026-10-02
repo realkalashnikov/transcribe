@@ -12,8 +12,11 @@ document.addEventListener("DOMContentLoaded", () => {
         localEngines: [],
         localModels: [],
         languages: [],
-        searchQuery: ""
+        searchQuery: "",
+        showRomanized: false
     };
+
+    const API_BASE = "";
 
     // Elementos DOM
     const tabLocal = document.getElementById("tab-local");
@@ -114,6 +117,9 @@ document.addEventListener("DOMContentLoaded", () => {
     const transcriptSearch = document.getElementById("transcript-search");
     const toastContainer = document.getElementById("toast-container");
 
+    const saveEditBtn = document.getElementById("save-edit-btn");
+    const toggleRomanizeBtn = document.getElementById("toggle-romanize-btn");
+    const llmActionsCard = document.getElementById("llm-actions-card");
     const copyBtn = document.getElementById("copy-btn");
     const downloadTxt = document.getElementById("download-txt");
     const downloadSrt = document.getElementById("download-srt");
@@ -195,10 +201,13 @@ document.addEventListener("DOMContentLoaded", () => {
         setupTabs();
         setupHistoryTabs();
         setupDragAndDrop();
+        setupDropzoneTabs();
         setupMicrophoneRecording();
         setupActions();
         setupAudioPlayer();
         setupSearch();
+        setupInlineEditingAndRomanize();
+        setupLLMActions();
         setupRemoteModal();
         setupAuthModal();
 
@@ -555,6 +564,295 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     }
 
+    // Abas de Arquivo Local vs URL Web
+    function setupDropzoneTabs() {
+        const tabFile = document.getElementById("tab-dropzone-file");
+        const tabUrl = document.getElementById("tab-dropzone-url");
+        const dropzoneEl = document.getElementById("dropzone");
+        const urlContainer = document.getElementById("url-ingest-container");
+        const urlInput = document.getElementById("web-url-input");
+        const urlBtn = document.getElementById("web-url-btn");
+
+        if (tabFile && tabUrl) {
+            tabFile.addEventListener("click", () => {
+                tabFile.classList.add("active");
+                tabUrl.classList.remove("active");
+                if (dropzoneEl) dropzoneEl.classList.remove("hidden");
+                if (urlContainer) urlContainer.classList.add("hidden");
+            });
+
+            tabUrl.addEventListener("click", () => {
+                tabUrl.classList.add("active");
+                tabFile.classList.remove("active");
+                if (urlContainer) urlContainer.classList.remove("hidden");
+                if (dropzoneEl) dropzoneEl.classList.add("hidden");
+                if (urlInput) urlInput.focus();
+            });
+        }
+
+        if (urlBtn && urlInput) {
+            const handleUrlSubmit = async () => {
+                if (state.isProcessing) return;
+                const url = urlInput.value.trim();
+                if (!url) {
+                    showToast("Por favor, cole um link de áudio ou vídeo.");
+                    return;
+                }
+                if (!url.startsWith("http://") && !url.startsWith("https://")) {
+                    showToast("O link deve iniciar com http:// ou https://");
+                    return;
+                }
+
+                urlBtn.disabled = true;
+                const origHtml = urlBtn.innerHTML;
+                urlBtn.innerHTML = `<span>Baixando mídia...</span>`;
+
+                try {
+                    const chosenEngine = (state.mode === "local")
+                        ? (localEngineSelect ? localEngineSelect.value : "faster-whisper")
+                        : cloudProviderSelect.value;
+                    const chosenModel = (state.mode === "local")
+                        ? localModelSelect.value
+                        : cloudModelSelect.value;
+                    const apiKey = (state.mode === "cloud")
+                        ? cloudApiKeyInput.value.trim()
+                        : null;
+
+                    const payload = {
+                        url: url,
+                        provider: chosenEngine,
+                        model: chosenModel,
+                        language: audioLanguageSelect.value || null,
+                        task: audioTaskSelect.value || "transcribe",
+                        prompt: initialPromptInput && initialPromptInput.value.trim() ? initialPromptInput.value.trim() : null,
+                        api_key: apiKey
+                    };
+
+                    const resp = await apiRequest("/api/ingest/url", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify(payload)
+                    });
+
+                    if (!resp.ok) {
+                        const err = await resp.json();
+                        throw new Error(err.detail || "Erro ao baixar áudio da URL");
+                    }
+
+                    const data = await resp.json();
+                    urlInput.value = "";
+                    showToast("Mídia baixada com sucesso! Transcrevendo...");
+
+                    const queueItem = {
+                        id: data.job_id,
+                        filename: data.filename,
+                        status: "processing",
+                        result: null,
+                        error: null,
+                        audioUrl: `/api/history/${data.job_id}/audio`
+                    };
+                    state.files.push(queueItem);
+                    state.activeItem = queueItem;
+                    if (state.activeTab !== "queue") tabQueue.click();
+                    renderQueue();
+                    showProgress("Iniciando transcrição...", 10);
+
+                    try {
+                        const result = await trackJobPromise(data.job_id);
+                        queueItem.status = "completed";
+                        queueItem.result = result;
+                        showTranscriptionResult(queueItem);
+                        await loadHistory();
+                    } catch (err) {
+                        queueItem.status = "error";
+                        queueItem.error = err.message || "Erro na transcrição";
+                        showErrorInView(queueItem);
+                    }
+                    renderQueue();
+                    hideProgress();
+
+                } catch (e) {
+                    showToast(e.message || "Falha ao processar URL");
+                } finally {
+                    urlBtn.disabled = false;
+                    urlBtn.innerHTML = origHtml;
+                    if (window.AppIcons) window.AppIcons.renderAll();
+                }
+            };
+
+            urlBtn.addEventListener("click", handleUrlSubmit);
+            urlInput.addEventListener("keydown", (e) => {
+                if (e.key === "Enter") {
+                    e.preventDefault();
+                    handleUrlSubmit();
+                }
+            });
+        }
+    }
+
+    // Edição Inline e Romanização Fonética
+    function setupInlineEditingAndRomanize() {
+        if (saveEditBtn) {
+            saveEditBtn.addEventListener("click", async () => {
+                if (!state.activeItem || !state.activeItem.result) return;
+                const res = state.activeItem.result;
+                const jobId = state.activeItem.id;
+
+                saveEditBtn.disabled = true;
+                const origHtml = saveEditBtn.innerHTML;
+                saveEditBtn.innerHTML = `<span>Salvando...</span>`;
+
+                try {
+                    const resp = await apiRequest(`/api/history/${jobId}`, {
+                        method: "PUT",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                            text: res.text,
+                            segments: res.segments
+                        })
+                    });
+
+                    if (resp.ok) {
+                        const data = await resp.json();
+                        if (data.item && data.item.exports) {
+                            res.exports = data.item.exports;
+                        }
+                        saveEditBtn.classList.add("hidden");
+                        showToast("Revisão salva com sucesso no disco!");
+                        await loadHistory();
+                    } else {
+                        const err = await resp.json();
+                        showToast(err.detail || "Erro ao salvar revisão.");
+                    }
+                } catch (e) {
+                    showToast("Falha de rede ao salvar revisão.");
+                } finally {
+                    saveEditBtn.disabled = false;
+                    saveEditBtn.innerHTML = origHtml;
+                    if (window.AppIcons) window.AppIcons.renderAll();
+                }
+            });
+        }
+
+        if (toggleRomanizeBtn) {
+            toggleRomanizeBtn.addEventListener("click", async () => {
+                if (!state.activeItem || !state.activeItem.result) return;
+                state.showRomanized = !state.showRomanized;
+
+                if (state.showRomanized) {
+                    toggleRomanizeBtn.classList.add("btn-primary");
+                    toggleRomanizeBtn.classList.remove("btn-outline");
+
+                    const res = state.activeItem.result;
+                    const needsRomanize = res.segments && res.segments.some(s => !s.romanized);
+                    if (needsRomanize) {
+                        showToast("Calculando romanização fonética...");
+                        try {
+                            const resp = await apiRequest("/api/romanize", {
+                                method: "POST",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({
+                                    text: res.text,
+                                    language: res.language || "ja",
+                                    segments: res.segments
+                                })
+                            });
+                            if (resp.ok) {
+                                const data = await resp.json();
+                                if (data.segments) {
+                                    res.segments = data.segments;
+                                }
+                            }
+                        } catch (e) {
+                            console.error("Erro ao romanizar:", e);
+                        }
+                    }
+                } else {
+                    toggleRomanizeBtn.classList.remove("btn-primary");
+                    toggleRomanizeBtn.classList.add("btn-outline");
+                }
+
+                renderActiveSegments();
+            });
+        }
+    }
+
+    // Ações Inteligentes com IA (Resumo, Ata, Tópicos, Tradução)
+    function setupLLMActions() {
+        const actionBtns = document.querySelectorAll(".llm-action-btn");
+        const providerSel = document.getElementById("llm-provider-select");
+        const targetLangSel = document.getElementById("llm-target-lang");
+        const outputBox = document.getElementById("llm-output-box");
+        const outputTitle = document.getElementById("llm-output-title");
+        const outputContent = document.getElementById("llm-output-content");
+        const copyLlmBtn = document.getElementById("copy-llm-btn");
+        const closeLlmBtn = document.getElementById("close-llm-btn");
+
+        actionBtns.forEach(btn => {
+            btn.addEventListener("click", async () => {
+                if (!state.activeItem || !state.activeItem.result) return;
+                const action = btn.dataset.action;
+                const provider = providerSel ? providerSel.value : "groq";
+                const targetLang = targetLangSel ? targetLangSel.value : "pt";
+                const apiKey = (cloudApiKeyInput && cloudApiKeyInput.value.trim()) || localStorage.getItem(`transcribe_key_${provider}`) || "";
+
+                const actionTitles = {
+                    summary: "📝 Resumo Executivo",
+                    action_items: "📋 Ata de Reunião & Próximos Passos",
+                    bullet_points: "🎯 Pontos Principais",
+                    translate: `🌐 Tradução para ${targetLang.toUpperCase()}`
+                };
+
+                if (outputBox) outputBox.classList.remove("hidden");
+                if (outputTitle) outputTitle.textContent = actionTitles[action] || "Processando com IA...";
+                if (outputContent) outputContent.innerHTML = `<span style="color: var(--text-dim);">Aguarde... conectando ao provedor ${provider.toUpperCase()}</span>`;
+
+                try {
+                    const resp = await apiRequest("/api/summarize", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                            job_id: state.activeItem.id,
+                            text: state.activeItem.result.text,
+                            action: action,
+                            target_language: targetLang,
+                            provider: provider,
+                            api_key: apiKey
+                        })
+                    });
+
+                    if (!resp.ok) {
+                        const err = await resp.json();
+                        throw new Error(err.detail || "Falha ao processar solicitação de IA.");
+                    }
+
+                    const data = await resp.json();
+                    if (outputContent) {
+                        outputContent.textContent = data.result || "Sem resposta retornada.";
+                    }
+                    showToast("Ação com IA finalizada com sucesso!");
+                } catch (e) {
+                    if (outputContent) {
+                        outputContent.innerHTML = `<span style="color: var(--danger);">${escapeHtml(e.message)}</span>`;
+                    }
+                }
+            });
+        });
+
+        if (copyLlmBtn && outputContent) {
+            copyLlmBtn.addEventListener("click", () => {
+                navigator.clipboard.writeText(outputContent.textContent);
+                showToast("Resultado copiado com sucesso!");
+            });
+        }
+
+        if (closeLlmBtn && outputBox) {
+            closeLlmBtn.addEventListener("click", () => {
+                outputBox.classList.add("hidden");
+            });
+        }
+    }
+
     // Gravação ao vivo pelo Microfone
     function setupMicrophoneRecording() {
         if (!recordBtn) return;
@@ -805,8 +1103,18 @@ document.addEventListener("DOMContentLoaded", () => {
             const end = parseFloat(item.dataset.end);
             if (currentTime >= start && currentTime <= end) {
                 item.classList.add("playing-segment");
+                item.querySelectorAll(".karaoke-word").forEach(wEl => {
+                    const wStart = parseFloat(wEl.dataset.start);
+                    const wEnd = parseFloat(wEl.dataset.end);
+                    if (currentTime >= wStart && currentTime <= wEnd) {
+                        wEl.classList.add("active");
+                    } else {
+                        wEl.classList.remove("active");
+                    }
+                });
             } else {
                 item.classList.remove("playing-segment");
+                item.querySelectorAll(".karaoke-word").forEach(wEl => wEl.classList.remove("active"));
             }
         });
     }
@@ -1109,7 +1417,10 @@ document.addEventListener("DOMContentLoaded", () => {
         }
 
         const { job_id } = await jobResp.json();
+        return trackJobPromise(job_id);
+    }
 
+    function trackJobPromise(job_id) {
         // 1. Tenta SSE (Server-Sent Events) para conexão única sem spam de requisições
         return new Promise((resolve, reject) => {
             let finished = false;
@@ -1173,7 +1484,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
                 eventSource.onerror = () => {
                     if (finished) return;
-                    // Em caso de falha no SSE (ex: proxy incompatível), cai graciosamente no polling lento
                     fallbackPolling();
                 };
             } else {
@@ -1241,6 +1551,10 @@ document.addEventListener("DOMContentLoaded", () => {
             }
         }
 
+        if (llmActionsCard) llmActionsCard.classList.remove("hidden");
+        if (toggleRomanizeBtn) toggleRomanizeBtn.classList.remove("hidden");
+        if (saveEditBtn) saveEditBtn.classList.add("hidden");
+
         renderActiveSegments();
     }
 
@@ -1278,9 +1592,25 @@ document.addEventListener("DOMContentLoaded", () => {
                 displayText = displayText.replace(regex, '<mark class="search-highlight">$1</mark>');
             }
 
+            // Word-level karaoke se disponível
+            let wordsHtml = '';
+            if (seg.words && Array.isArray(seg.words) && seg.words.length > 0 && !query) {
+                wordsHtml = seg.words.map(w => {
+                    return `<span class="karaoke-word" data-start="${w.start}" data-end="${w.end}">${escapeHtml(w.word)}</span>`;
+                }).join(" ");
+            } else {
+                wordsHtml = displayText;
+            }
+
+            let romanizedHtml = '';
+            if (state.showRomanized && seg.romanized) {
+                romanizedHtml = `<div class="romanized-text">${escapeHtml(seg.romanized)}</div>`;
+            }
+
             div.innerHTML = `
                 <div class="timestamp" title="Clique para ouvir este trecho">${startFmt} - ${endFmt}</div>
-                <div class="segment-text">${displayText}</div>
+                <div class="segment-text" contenteditable="true" spellcheck="false" data-id="${seg.id}">${wordsHtml}</div>
+                ${romanizedHtml}
             `;
 
             // Clique no timestamp pula o áudio direto para o ponto inicial se houver áudio
@@ -1292,6 +1622,28 @@ document.addEventListener("DOMContentLoaded", () => {
                     playBtnIcon.innerHTML = AppIcons.get("pause", "ui-icon");
                 }
             };
+
+            // Clique na palavra pula para o ponto exato da palavra
+            div.querySelectorAll(".karaoke-word").forEach(wEl => {
+                wEl.addEventListener("click", (e) => {
+                    e.stopPropagation();
+                    const wStart = parseFloat(wEl.dataset.start);
+                    if (nativeAudio && nativeAudio.src && !isNaN(wStart)) {
+                        nativeAudio.currentTime = wStart;
+                        nativeAudio.play();
+                        playBtnIcon.innerHTML = AppIcons.get("pause", "ui-icon");
+                    }
+                });
+            });
+
+            // Edição inline da transcrição
+            const textEl = div.querySelector(".segment-text");
+            textEl.addEventListener("input", () => {
+                const newText = textEl.innerText.trim();
+                seg.text = newText;
+                res.text = res.segments.map(s => s.text).join(" ");
+                if (saveEditBtn) saveEditBtn.classList.remove("hidden");
+            });
 
             transcriptBody.appendChild(div);
         });
@@ -1312,6 +1664,9 @@ document.addEventListener("DOMContentLoaded", () => {
         audioPlayerContainer.classList.add("hidden");
         statsStrip.classList.add("hidden");
         searchWrapper.classList.add("hidden");
+        if (llmActionsCard) llmActionsCard.classList.add("hidden");
+        if (toggleRomanizeBtn) toggleRomanizeBtn.classList.add("hidden");
+        if (saveEditBtn) saveEditBtn.classList.add("hidden");
 
         transcriptBody.className = "transcript-body";
         transcriptBody.innerHTML = `
@@ -1335,6 +1690,9 @@ document.addEventListener("DOMContentLoaded", () => {
         audioPlayerContainer.classList.add("hidden");
         statsStrip.classList.add("hidden");
         searchWrapper.classList.add("hidden");
+        if (llmActionsCard) llmActionsCard.classList.add("hidden");
+        if (toggleRomanizeBtn) toggleRomanizeBtn.classList.add("hidden");
+        if (saveEditBtn) saveEditBtn.classList.add("hidden");
 
         if (nativeAudio) {
             nativeAudio.pause();
