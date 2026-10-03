@@ -47,6 +47,17 @@
 
 </div>
 
+### 🖥️ Diagnóstico & Aceleração Inteligente de Hardware
+- **Detecção em Tempo Real de CPU e GPU**: Detecta automaticamente sua CPU (Intel Core, AMD Ryzen, Apple Silicon, etc.) e GPU dedicada (NVIDIA GeForce/RTX com CUDA, AMD Radeon, Intel Arc).
+- **Quantização int8 de Alta Performance**: Se você não possui GPU NVIDIA CUDA, o sistema configura automaticamente inferência multithread otimizada na CPU via CTranslate2, reduzindo o consumo de RAM em até 65% sem perder qualidade.
+- **Alternador Rápido de Dispositivo**: Permite alternar com um clique entre inferência na CPU, Whisper.cpp (C++) ou aceleração em nuvem.
+
+<div align="center">
+
+![Diagnóstico de Hardware](docs/screenshots/hardware_modal.png)
+
+</div>
+
 ### 🤖 API REST Pública v1 (`/api/v1`)
 - Endpoints padronizados para bots de Discord, Telegram, automações e desenvolvedores:
   - `POST /api/v1/transcribe`: Transcrição de arquivos com retornos em JSON, TXT, SRT ou VTT.
@@ -71,14 +82,24 @@
 
 ## 🚀 Como Iniciar
 
-### Menu Interativo Moderno (CLI com Setas)
-Tanto pelo duplo clique no `run.bat` quanto executando `python run.py`, você tem uma interface interativa de terminal com cores e navegação por setas:
+### Menu Interativo Launcher (CLI com Setas & Bandeja do Windows)
+Tanto pelo duplo clique no `run.bat` quanto executando `python run.py`, você tem um launcher interativo completo com atalhos numéricos de 1 a 8 e suporte a segundo plano (ícone na bandeja do sistema junto ao relógio):
 
 <div align="center">
 
 ![Menu Interativo CLI](docs/screenshots/cli_menu.png)
 
 </div>
+
+Opções do Launcher:
+1. **Iniciar Local com Navegador (Padrão)**: Sobe o backend e abre a interface web automaticamente.
+2. **Iniciar Local sem abrir Navegador**: Mantém o servidor rodando sem abrir abas adicionais.
+3. **Executar em Segundo Plano (Bandeja / System Tray)**: Minimiza o servidor para o relógio do Windows com menu de contexto (Abrir, Reiniciar e Fechar).
+4. **Instância Pública / Amigos (Rede ou VPS)**: Escuta em `0.0.0.0` com isolamento por sessão.
+5. **Túnel Cloudflare (Acesso remoto / Celular)**: Cria URL pública HTTPS e exibe QR Code de 200px para conexão instantânea.
+6. **Abrir Transcribe no Navegador**: Atalho rápido para abrir a UI no navegador padrão.
+7. **Parar Servidor em Segundo Plano**: Encerra processos rodando em background com segurança.
+8. **Sair**.
 
 ### Pela Linha de Comando (CLI)
 ```bash

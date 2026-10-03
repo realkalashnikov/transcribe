@@ -158,9 +158,15 @@ def main():
         print(" -> transcription_view.png capturado!")
 
         # 3. Feed Format com Modal de Acesso Remoto & QR Code Interativo
-        print(f"[5/7] Capturando modal de acesso remoto em {remote_png} (Feed 1600x1200)...")
+        print(f"[5/8] Capturando modal de acesso remoto em {remote_png} (Feed 1600x1200)...")
         capture_edge("http://127.0.0.1:8008/?demo=1&remote=1", remote_png, 1600, 1200, 1.15, temp_profile)
         print(" -> remote_modal.png capturado!")
+
+        # 3.5 Feed Format com Modal de Diagnóstico de Hardware Atualizado
+        hardware_png = SCREENSHOTS_DIR / "hardware_modal.png"
+        print(f"[5.5/8] Capturando modal de hardware em {hardware_png} (Feed 1600x1200)...")
+        capture_edge("http://127.0.0.1:8008/?hardware=1", hardware_png, 1600, 1200, 1.15, temp_profile)
+        print(" -> hardware_modal.png capturado!")
 
         # ========================================================
         # PRINTS DEDICADOS DE ALTA DEFINIÇÃO PARA O LINKEDIN
@@ -181,6 +187,10 @@ def main():
         print(" -> Gerando 1c_gerenciador_conexoes.png...")
         capture_edge("http://127.0.0.1:8008/?focus=providers", linkedin_dir / "1c_gerenciador_conexoes.png", 1150, 950, 1.55, temp_profile)
 
+        # LinkedIn 1d: Diagnóstico de Hardware e Aceleração Local
+        print(" -> Gerando 1d_diagnostico_hardware.png...")
+        capture_edge("http://127.0.0.1:8008/?hardware=1", linkedin_dir / "1d_diagnostico_hardware.png", 1150, 950, 1.55, temp_profile)
+
         # LinkedIn 2: Ingestão por Link da Web / YouTube + Fila Ativa
         print(" -> Gerando 2_transcricao_por_url.png...")
         capture_edge("http://127.0.0.1:8008/?focus=url", linkedin_dir / "2_transcricao_por_url.png", 1150, 900, 1.6, temp_profile)
@@ -198,12 +208,12 @@ def main():
         capture_edge("http://127.0.0.1:8008/?demo=1", linkedin_dir / "5_visao_geral.png", 1500, 1100, 1.35, temp_profile)
 
         # 4. 9:16 Vertical Format para WhatsApp Status, Instagram Stories e Facebook Stories
-        print(f"[6/7] Capturando formato vertical Story/Status em {story_png} (9:16 vertical)...")
+        print(f"[7/8] Capturando formato vertical Story/Status em {story_png} (9:16 vertical)...")
         capture_edge("http://127.0.0.1:8008/?demo=1&story=1", story_png, 720, 1280, 1.5, temp_profile)
         print(" -> story_status.png capturado com sucesso!")
 
         # 5. Captura da Janela do Menu CLI Interativo
-        print(f"[7/7] Gerando visual da CLI Interativa em {cli_png}...")
+        print(f"[8/8] Gerando visual da CLI Interativa em {cli_png}...")
         cli_html = BASE_DIR / "scripts" / "_cli_mockup.html"
         cli_html.write_text("""<!DOCTYPE html>
 <html>
@@ -222,7 +232,7 @@ def main():
     box-sizing: border-box;
   }
   .terminal-window {
-    width: 900px;
+    width: 920px;
     background: #0d121f;
     border: 1px solid #1f293d;
     border-radius: 12px;
@@ -257,26 +267,26 @@ def main():
     font-weight: 500;
   }
   .terminal-body {
-    padding: 32px 36px 40px;
-    font-size: 16px;
-    line-height: 1.8;
+    padding: 28px 36px 36px;
+    font-size: 15px;
+    line-height: 1.7;
   }
   .header {
     color: #06b6d4;
     font-weight: bold;
     text-decoration: underline;
-    font-size: 18px;
-    margin-bottom: 24px;
+    font-size: 17px;
+    margin-bottom: 20px;
     display: inline-block;
   }
   .menu-list {
     display: flex;
     flex-direction: column;
-    gap: 6px;
-    margin-bottom: 28px;
+    gap: 5px;
+    margin-bottom: 22px;
   }
   .menu-item {
-    padding: 8px 16px;
+    padding: 7px 14px;
     border-radius: 6px;
     display: flex;
     align-items: center;
@@ -307,7 +317,7 @@ def main():
     font-size: 13px;
     margin-top: 10px;
     border-top: 1px dashed #1f293d;
-    padding-top: 16px;
+    padding-top: 14px;
   }
 </style>
 </head>
@@ -319,37 +329,53 @@ def main():
         <div class="dot dot-yellow"></div>
         <div class="dot dot-green"></div>
       </div>
-      <div class="title">Transcribe Studio — Terminal CLI</div>
+      <div class="title">Transcribe Studio — Launcher CLI</div>
     </div>
     <div class="terminal-body">
       <div class="header">🗂 Transcribe Studio — Menu Principal</div>
       <div class="menu-list">
         <div class="menu-item active">
           <span class="icon">◈</span>
-          <span>1. Modo Local Pessoal (Apenas neste computador - Padrão)</span>
+          <span>1. Iniciar Local com Navegador (Padrão)</span>
         </div>
         <div class="menu-item">
           <span class="icon">◈</span>
-          <span>2. Instância Pública / Amigos (Rede ou VPS com domínio)</span>
+          <span>2. Iniciar Local sem abrir Navegador</span>
         </div>
         <div class="menu-item">
           <span class="icon">◈</span>
-          <span>3. Túnel Cloudflare (Acesso externo rápido sem IP fixo / Celular)</span>
+          <span>3. Executar em Segundo Plano (Bandeja / Tray no relógio)</span>
+        </div>
+        <div class="menu-item">
+          <span class="icon">◈</span>
+          <span>4. Instância Pública / Amigos (Rede ou VPS)</span>
+        </div>
+        <div class="menu-item">
+          <span class="icon">◈</span>
+          <span>5. Túnel Cloudflare (Acesso remoto / Celular)</span>
+        </div>
+        <div class="menu-item">
+          <span class="icon">◈</span>
+          <span>6. Abrir Transcribe no Navegador</span>
+        </div>
+        <div class="menu-item">
+          <span class="icon">◈</span>
+          <span>7. Parar Servidor em Segundo Plano</span>
         </div>
         <div class="menu-item exit">
           <span class="icon exit-icon">✕</span>
-          <span>4. Sair</span>
+          <span>8. Sair</span>
         </div>
       </div>
       <div class="hint">
-        (Use as setas ↑/↓ para navegar, Enter para confirmar ou 1-4 para atalho)
+        (Use as setas ↑/↓ para navegar, Enter para confirmar ou 1-8 para atalho)
       </div>
     </div>
   </div>
 </body>
 </html>""", encoding="utf-8")
         
-        capture_edge(f"file:///{str(cli_html).replace('\\\\', '/')}", cli_png, 1060, 560, 1.2, temp_profile)
+        capture_edge(f"file:///{str(cli_html).replace('\\\\', '/')}", cli_png, 1080, 680, 1.2, temp_profile)
         try:
             cli_html.unlink()
         except Exception:
