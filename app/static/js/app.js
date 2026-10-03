@@ -8,7 +8,11 @@ document.addEventListener("DOMContentLoaded", () => {
         activeItem: null, // Item atualmente exibido (da fila ou do histórico)
         activeTab: "queue", // "queue" | "history"
         isProcessing: false,
-        providers: [],
+        providers: [
+            { id: "groq", name: "Groq Cloud", models: ["whisper-large-v3-turbo", "whisper-large-v3"], default_model: "whisper-large-v3-turbo" },
+            { id: "openai", name: "OpenAI", models: ["whisper-1"], default_model: "whisper-1" },
+            { id: "gemini", name: "Google Gemini", models: ["gemini-2.5-flash", "gemini-1.5-flash"], default_model: "gemini-2.5-flash" }
+        ],
         localEngines: [],
         localModels: [],
         languages: [],
@@ -57,14 +61,32 @@ document.addEventListener("DOMContentLoaded", () => {
     const localModelSelect = document.getElementById("local-model");
     const cloudProviderSelect = document.getElementById("cloud-provider");
     const cloudModelSelect = document.getElementById("cloud-model");
-    const cloudApiKeyInput = document.getElementById("cloud-api-key");
-    const apiKeyLink = document.getElementById("api-key-link");
+    const llmProviderSelect = document.getElementById("llm-provider-select");
+    const llmModelSelect = document.getElementById("llm-model-select");
     const audioLanguageSelect = document.getElementById("audio-language");
-    const cloudCustomModelGroup = document.getElementById("cloud-custom-model-group");
-    const cloudCustomModelInput = document.getElementById("cloud-custom-model");
-    const cloudBaseUrlGroup = document.getElementById("cloud-base-url-group");
-    const cloudBaseUrlInput = document.getElementById("cloud-base-url");
+    const audioTaskSelect = document.getElementById("audio-task");
     const initialPromptInput = document.getElementById("initial-prompt");
+
+    function getApiKeyForProvider(providerId) {
+        if (!providerId) return "";
+        if (providerId.startsWith("custom_")) {
+            const cp = getCustomProviders().find(p => p.id === providerId);
+            return (cp && cp.api_key) || "";
+        }
+        return localStorage.getItem(`transcribe_key_${providerId}`) || "";
+    }
+
+    function getBaseUrlForProvider(providerId) {
+        if (!providerId) return null;
+        if (providerId.startsWith("custom_")) {
+            const cp = getCustomProviders().find(p => p.id === providerId);
+            return (cp && cp.base_url) || null;
+        }
+        if (providerId === "custom") {
+            return localStorage.getItem("transcribe_custom_base_url") || "http://localhost:11434/v1";
+        }
+        return null;
+    }
 
     const dropzone = document.getElementById("dropzone");
     const fileInput = document.getElementById("file-input");
@@ -214,6 +236,7 @@ document.addEventListener("DOMContentLoaded", () => {
         setupCustomProvidersManager();
         setupRemoteModal();
         setupAuthModal();
+        populateAllProviderSelects();
 
         // Checa se há PIN na URL para login automático com 1 toque
         const params = new URLSearchParams(window.location.search);
@@ -269,6 +292,8 @@ document.addEventListener("DOMContentLoaded", () => {
             } else if (focusMode === "providers") {
                 if (tabCloud) tabCloud.click();
                 openProvidersModal();
+                const tabCustom = document.getElementById("tab-modal-custom");
+                if (tabCustom) tabCustom.click();
                 const badge = document.createElement("div");
                 badge.className = "focus-card-badge";
                 badge.innerHTML = `${AppIcons.get("settings", "ui-icon")} Gerencie Servidores Próprios & APIs OpenAI-Compatíveis (Ollama, vLLM, OpenRouter)`;
@@ -415,15 +440,17 @@ document.addEventListener("DOMContentLoaded", () => {
             const resp = await apiRequest("/api/info");
             const data = await resp.json();
 
-            // Atualiza Hardware Badge
+            // Atualiza Hardware Badge com texto explícito de CPU / GPU
             if (data.cuda_available) {
-                hardwareText.textContent = "Aceleração GPU (CUDA) Ativa";
+                hardwareText.textContent = "Hardware: GPU NVIDIA (CUDA Ativa)";
                 hardwareBadge.className = "badge badge-cuda";
-                hardwareBadge.querySelector("[data-icon]").innerHTML = AppIcons.get("zap", "ui-icon ui-icon-sm");
+                const iconBox = hardwareBadge.querySelector("[data-icon]") || hardwareBadge.querySelector("svg");
+                if (iconBox) iconBox.outerHTML = `<span data-icon="zap" data-icon-class="ui-icon ui-icon-sm">${AppIcons.get("zap", "ui-icon ui-icon-sm")}</span>`;
             } else {
-                hardwareText.textContent = "Modo CPU (int8 otimizado)";
+                hardwareText.textContent = "Hardware: Processamento em CPU (int8)";
                 hardwareBadge.className = "badge badge-cpu";
-                hardwareBadge.querySelector("[data-icon]").innerHTML = AppIcons.get("cpu", "ui-icon ui-icon-sm");
+                const iconBox = hardwareBadge.querySelector("[data-icon]") || hardwareBadge.querySelector("svg");
+                if (iconBox) iconBox.outerHTML = `<span data-icon="cpu" data-icon-class="ui-icon ui-icon-sm">${AppIcons.get("cpu", "ui-icon ui-icon-sm")}</span>`;
             }
 
             // Em modo BYOK, oculta aba local e seleciona Nuvem
@@ -459,17 +486,9 @@ document.addEventListener("DOMContentLoaded", () => {
                 localModelSelect.appendChild(opt);
             });
 
-            // Popula provedores de nuvem
+            // Popula provedores de nuvem e IA
             state.providers = data.cloud_providers || [];
-            cloudProviderSelect.innerHTML = "";
-            state.providers.forEach(p => {
-                const opt = document.createElement("option");
-                opt.value = p.id;
-                opt.textContent = p.name;
-                cloudProviderSelect.appendChild(opt);
-            });
-            populateCustomProviderOptions();
-            updateCloudModels();
+            populateAllProviderSelects();
 
             // Popula idiomas
             state.languages = data.languages || [];
@@ -500,24 +519,45 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     function setupHistoryTabs() {
-        tabQueue.addEventListener("click", () => {
-            state.activeTab = "queue";
-            tabQueue.classList.add("active");
-            tabHistory.classList.remove("active");
-            fileQueueList.classList.remove("hidden");
-            historyList.classList.add("hidden");
-            clearQueueBtn.style.display = state.files.length > 0 ? "inline-flex" : "none";
-        });
+        const tabStudio = document.getElementById("tab-studio");
+        const studioView = document.getElementById("studio-view");
+        const historyView = document.getElementById("history-view");
+        const queueView = document.getElementById("queue-view");
 
-        tabHistory.addEventListener("click", () => {
-            state.activeTab = "history";
-            tabHistory.classList.add("active");
-            tabQueue.classList.remove("active");
-            historyList.classList.remove("hidden");
-            fileQueueList.classList.add("hidden");
-            clearQueueBtn.style.display = "none";
-            loadHistory();
-        });
+        function switchWorkspaceTab(activeName) {
+            state.activeTab = activeName;
+            if (tabStudio) tabStudio.classList.toggle("active", activeName === "studio");
+            if (tabHistory) tabHistory.classList.toggle("active", activeName === "history");
+            if (tabQueue) tabQueue.classList.toggle("active", activeName === "queue");
+
+            if (studioView) studioView.classList.toggle("hidden", activeName !== "studio");
+            if (historyView) historyView.classList.toggle("hidden", activeName !== "history");
+            if (queueView) queueView.classList.toggle("hidden", activeName !== "queue");
+
+            if (clearQueueBtn) {
+                clearQueueBtn.style.display = (activeName === "queue" && state.files.length > 0) ? "inline-flex" : "none";
+            }
+        }
+
+        window.__switchToStudio = () => switchWorkspaceTab("studio");
+
+        if (tabStudio) {
+            tabStudio.addEventListener("click", () => switchWorkspaceTab("studio"));
+        }
+
+        if (tabQueue) {
+            tabQueue.addEventListener("click", () => {
+                switchWorkspaceTab("queue");
+                renderQueue();
+            });
+        }
+
+        if (tabHistory) {
+            tabHistory.addEventListener("click", () => {
+                switchWorkspaceTab("history");
+                loadHistory();
+            });
+        }
     }
 
     function renderHistory() {
@@ -628,169 +668,176 @@ document.addEventListener("DOMContentLoaded", () => {
             tabLocal.classList.remove("active");
             cloudSettings.classList.remove("hidden");
             localSettings.classList.add("hidden");
-            loadSavedApiKeyForCurrentProvider();
             updateStartButtonState();
         });
 
-        cloudProviderSelect.addEventListener("change", () => {
-            updateCloudModels();
-            loadSavedApiKeyForCurrentProvider();
-            updateStartButtonState();
-        });
-
-        cloudModelSelect.addEventListener("change", () => {
-            syncCloudCustomInputs();
-        });
-
-        if (cloudBaseUrlInput) {
-            cloudBaseUrlInput.addEventListener("input", () => {
-                const prov = cloudProviderSelect.value;
-                if (prov.startsWith("custom_")) {
-                    const list = getCustomProviders();
-                    const item = list.find(p => p.id === prov);
-                    if (item) {
-                        item.base_url = cloudBaseUrlInput.value.trim();
-                        saveCustomProviders(list);
-                    }
-                } else {
-                    localStorage.setItem("transcribe_custom_base_url", cloudBaseUrlInput.value.trim());
-                }
+        if (cloudProviderSelect) {
+            cloudProviderSelect.addEventListener("change", () => {
+                updateCloudModels();
+                updateStartButtonState();
             });
         }
-
-        if (cloudCustomModelInput) {
-            cloudCustomModelInput.addEventListener("input", () => {
-                const prov = cloudProviderSelect.value;
-                if (prov.startsWith("custom_")) {
-                    const list = getCustomProviders();
-                    const item = list.find(p => p.id === prov);
-                    if (item) {
-                        item.default_model = cloudCustomModelInput.value.trim();
-                        saveCustomProviders(list);
-                    }
-                } else {
-                    localStorage.setItem("transcribe_custom_model", cloudCustomModelInput.value.trim());
-                }
-            });
-        }
-
-        cloudApiKeyInput.addEventListener("input", () => {
-            const provider = cloudProviderSelect.value;
-            if (provider.startsWith("custom_")) {
-                const list = getCustomProviders();
-                const item = list.find(p => p.id === provider);
-                if (item) {
-                    item.api_key = cloudApiKeyInput.value.trim();
-                    saveCustomProviders(list);
-                }
-            } else {
-                localStorage.setItem(`transcribe_key_${provider}`, cloudApiKeyInput.value.trim());
-            }
-            updateStartButtonState();
-        });
     }
 
-    function syncCloudCustomInputs() {
-        const providerId = cloudProviderSelect ? cloudProviderSelect.value : "";
-        const isCustomProvider = providerId === "custom" || providerId.startsWith("custom_");
-        const isCustomModel = (cloudModelSelect && cloudModelSelect.value === "custom") || isCustomProvider;
+    function populateAllProviderSelects() {
+        populateCloudProviderOptions();
+        updateCloudModels();
+        populateLLMProviderOptions();
+        updateLLMModels();
+    }
 
-        if (cloudBaseUrlGroup) {
-            cloudBaseUrlGroup.style.display = isCustomProvider ? "block" : "none";
-        }
-        if (cloudCustomModelGroup) {
-            cloudCustomModelGroup.style.display = isCustomModel ? "block" : "none";
+    function populateCloudProviderOptions() {
+        if (!cloudProviderSelect) return;
+        const currentVal = cloudProviderSelect.value;
+        cloudProviderSelect.innerHTML = "";
+
+        // Oficiais
+        state.providers.filter(p => p.id !== "custom").forEach(p => {
+            const opt = document.createElement("option");
+            opt.value = p.id;
+            opt.textContent = p.name;
+            cloudProviderSelect.appendChild(opt);
+        });
+
+        // Conexões Personalizadas com suporte a transcrição
+        const customList = getCustomProviders().filter(p => p.type === "all" || p.type === "transcribe");
+        if (customList.length > 0) {
+            const group = document.createElement("optgroup");
+            group.label = "── Servidores Próprios ──";
+            customList.forEach(p => {
+                const opt = document.createElement("option");
+                opt.value = p.id;
+                opt.textContent = p.name;
+                group.appendChild(opt);
+            });
+            cloudProviderSelect.appendChild(group);
         }
 
-        if (isCustomProvider && cloudBaseUrlInput && !cloudBaseUrlInput.value) {
-            if (providerId.startsWith("custom_")) {
-                const cp = getCustomProviders().find(p => p.id === providerId);
-                if (cp) cloudBaseUrlInput.value = cp.base_url || "";
-            } else {
-                cloudBaseUrlInput.value = localStorage.getItem("transcribe_custom_base_url") || "http://localhost:11434/v1";
-            }
-        }
-        if (isCustomModel && cloudCustomModelInput && !cloudCustomModelInput.value) {
-            if (providerId.startsWith("custom_")) {
-                const cp = getCustomProviders().find(p => p.id === providerId);
-                if (cp) cloudCustomModelInput.value = cp.default_model || "";
-            } else {
-                cloudCustomModelInput.value = localStorage.getItem("transcribe_custom_model") || "";
-            }
+        if (currentVal && Array.from(cloudProviderSelect.options).some(o => o.value === currentVal)) {
+            cloudProviderSelect.value = currentVal;
+        } else {
+            cloudProviderSelect.value = "groq";
         }
     }
 
     function updateCloudModels() {
-        const providerId = cloudProviderSelect.value;
+        if (!cloudModelSelect || !cloudProviderSelect) return;
+        const provId = cloudProviderSelect.value;
         cloudModelSelect.innerHTML = "";
 
-        if (providerId.startsWith("custom_")) {
-            const customProv = getCustomProviders().find(p => p.id === providerId);
-            if (customProv) {
-                const opt = document.createElement("option");
-                opt.value = customProv.default_model || "whisper-1";
-                opt.textContent = `${customProv.default_model || "whisper-1"} (Padrão)`;
-                opt.selected = true;
-                cloudModelSelect.appendChild(opt);
-
-                const customOpt = document.createElement("option");
-                customOpt.value = "custom";
-                customOpt.textContent = "Personalizado / Outro modelo...";
-                cloudModelSelect.appendChild(customOpt);
-
-                if (apiKeyLink) apiKeyLink.style.display = "none";
-                if (cloudBaseUrlGroup) cloudBaseUrlGroup.style.display = "block";
-                if (cloudCustomModelGroup) cloudCustomModelGroup.style.display = "block";
-                if (cloudBaseUrlInput) cloudBaseUrlInput.value = customProv.base_url || "";
-                if (cloudCustomModelInput) cloudCustomModelInput.value = customProv.default_model || "";
-                if (cloudApiKeyInput) cloudApiKeyInput.value = customProv.api_key || "";
-            }
+        if (provId.startsWith("custom_")) {
+            const cp = getCustomProviders().find(p => p.id === provId);
+            const modelName = (cp && cp.default_model) || "whisper-large-v3";
+            const opt = document.createElement("option");
+            opt.value = modelName;
+            opt.textContent = `${modelName} (Padrão do Servidor)`;
+            opt.selected = true;
+            cloudModelSelect.appendChild(opt);
             return;
         }
 
-        const provider = state.providers.find(p => p.id === providerId);
-        if (!provider) return;
+        const prov = state.providers.find(p => p.id === provId);
+        if (!prov) return;
 
-        if (apiKeyLink) {
-            if (provider.doc_url) {
-                apiKeyLink.style.display = "inline-flex";
-                apiKeyLink.href = provider.doc_url;
-            } else {
-                apiKeyLink.style.display = "none";
-            }
-        }
-
-        provider.models.forEach(m => {
+        (prov.models || []).forEach(m => {
+            if (m === "custom") return;
             const opt = document.createElement("option");
             opt.value = m;
-            opt.textContent = m === "custom" ? "Personalizado / Outro modelo..." : m;
-            if (m === provider.default_model) opt.selected = true;
+            let label = m;
+            if (m === "whisper-large-v3-turbo") label = "Whisper-Large-v3-Turbo (Recomendado - Mais Rápido)";
+            else if (m === "whisper-large-v3") label = "Whisper-Large-v3 (Precisão Máxima)";
+            else if (m === "whisper-1") label = "Whisper-1 (Modelo Oficial OpenAI)";
+            else if (m === "gemini-2.5-flash") label = "Gemini 2.5 Flash (Áudio Multimodal Rápido)";
+            else if (m === "gemini-1.5-flash") label = "Gemini 1.5 Flash (Áudio Multimodal)";
+            opt.textContent = label;
+            if (m === prov.default_model) opt.selected = true;
             cloudModelSelect.appendChild(opt);
         });
+    }
 
-        if (!provider.models.includes("custom")) {
-            const customOpt = document.createElement("option");
-            customOpt.value = "custom";
-            customOpt.textContent = "Personalizado / Outro modelo...";
-            cloudModelSelect.appendChild(customOpt);
+    const LLM_MODELS_MAP = {
+        groq: [
+            { id: "llama-3.3-70b-versatile", name: "Llama 3.3 70B (Recomendado)" },
+            { id: "mixtral-8x7b-32768", name: "Mixtral 8x7B (Janela de 32k tokens)" },
+            { id: "gemma2-9b-it", name: "Gemma 2 9B" }
+        ],
+        openai: [
+            { id: "gpt-4o-mini", name: "GPT-4o-mini (Recomendado)" },
+            { id: "gpt-4o", name: "GPT-4o" }
+        ],
+        gemini: [
+            { id: "gemini-2.5-flash", name: "Gemini 2.5 Flash (Recomendado)" },
+            { id: "gemini-1.5-flash", name: "Gemini 1.5 Flash" }
+        ]
+    };
+
+    function populateLLMProviderOptions() {
+        const sel = document.getElementById("llm-provider-select");
+        if (!sel) return;
+        const currentVal = sel.value;
+        sel.innerHTML = "";
+
+        [
+            { id: "groq", name: "Groq Cloud" },
+            { id: "openai", name: "OpenAI" },
+            { id: "gemini", name: "Google Gemini" }
+        ].forEach(p => {
+            const opt = document.createElement("option");
+            opt.value = p.id;
+            opt.textContent = p.name;
+            sel.appendChild(opt);
+        });
+
+        const customList = getCustomProviders().filter(p => p.type === "all" || p.type === "llm");
+        if (customList.length > 0) {
+            const group = document.createElement("optgroup");
+            group.label = "── Servidores Próprios ──";
+            customList.forEach(p => {
+                const opt = document.createElement("option");
+                opt.value = p.id;
+                opt.textContent = p.name;
+                group.appendChild(opt);
+            });
+            sel.appendChild(group);
         }
 
-        syncCloudCustomInputs();
+        if (currentVal && Array.from(sel.options).some(o => o.value === currentVal)) {
+            sel.value = currentVal;
+        } else {
+            sel.value = "groq";
+        }
+    }
+
+    function updateLLMModels() {
+        const provSel = document.getElementById("llm-provider-select");
+        const modelSel = document.getElementById("llm-model-select");
+        if (!provSel || !modelSel) return;
+        const provId = provSel.value;
+        modelSel.innerHTML = "";
+
+        if (provId.startsWith("custom_")) {
+            const cp = getCustomProviders().find(p => p.id === provId);
+            const modelName = (cp && cp.default_model) || "llama3.2";
+            const opt = document.createElement("option");
+            opt.value = modelName;
+            opt.textContent = `${modelName} (Padrão do Servidor)`;
+            opt.selected = true;
+            modelSel.appendChild(opt);
+            return;
+        }
+
+        const models = LLM_MODELS_MAP[provId] || [{ id: "default", name: "Padrão" }];
+        models.forEach((m, idx) => {
+            const opt = document.createElement("option");
+            opt.value = m.id;
+            opt.textContent = m.name;
+            if (idx === 0) opt.selected = true;
+            modelSel.appendChild(opt);
+        });
     }
 
     function loadSavedApiKeys() {
-        loadSavedApiKeyForCurrentProvider();
-    }
-
-    function loadSavedApiKeyForCurrentProvider() {
-        const provider = cloudProviderSelect.value;
-        if (provider.startsWith("custom_")) {
-            const customProv = getCustomProviders().find(p => p.id === provider);
-            cloudApiKeyInput.value = (customProv && customProv.api_key) || "";
-            return;
-        }
-        const saved = localStorage.getItem(`transcribe_key_${provider}`) || "";
-        cloudApiKeyInput.value = saved;
+        // As chaves são persistidas no localStorage e consultadas dinamicamente
     }
 
     // Drag and Drop de arquivos
@@ -833,31 +880,33 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     }
 
-    // Abas de Arquivo Local vs URL Web
+    // Abas de Ingestão: Arquivo Local vs URL Web vs Microfone
     function setupDropzoneTabs() {
         const tabFile = document.getElementById("tab-dropzone-file");
         const tabUrl = document.getElementById("tab-dropzone-url");
+        const tabMic = document.getElementById("tab-dropzone-mic");
         const dropzoneEl = document.getElementById("dropzone");
         const urlContainer = document.getElementById("url-ingest-container");
+        const micContainer = document.getElementById("mic-ingest-container");
         const urlInput = document.getElementById("web-url-input");
         const urlBtn = document.getElementById("web-url-btn");
 
-        if (tabFile && tabUrl) {
-            tabFile.addEventListener("click", () => {
-                tabFile.classList.add("active");
-                tabUrl.classList.remove("active");
-                if (dropzoneEl) dropzoneEl.classList.remove("hidden");
-                if (urlContainer) urlContainer.classList.add("hidden");
-            });
+        function switchIngestTab(active) {
+            if (tabFile) tabFile.classList.toggle("active", active === "file");
+            if (tabUrl) tabUrl.classList.toggle("active", active === "url");
+            if (tabMic) tabMic.classList.toggle("active", active === "mic");
 
-            tabUrl.addEventListener("click", () => {
-                tabUrl.classList.add("active");
-                tabFile.classList.remove("active");
-                if (urlContainer) urlContainer.classList.remove("hidden");
-                if (dropzoneEl) dropzoneEl.classList.add("hidden");
-                if (urlInput) urlInput.focus();
-            });
+            if (dropzoneEl) dropzoneEl.classList.toggle("hidden", active !== "file");
+            if (urlContainer) urlContainer.classList.toggle("hidden", active !== "url");
+            if (micContainer) micContainer.classList.toggle("hidden", active !== "mic");
         }
+
+        if (tabFile) tabFile.addEventListener("click", () => switchIngestTab("file"));
+        if (tabUrl) tabUrl.addEventListener("click", () => {
+            switchIngestTab("url");
+            if (urlInput) urlInput.focus();
+        });
+        if (tabMic) tabMic.addEventListener("click", () => switchIngestTab("mic"));
 
         if (urlBtn && urlInput) {
             const handleUrlSubmit = async () => {
@@ -886,24 +935,11 @@ document.addEventListener("DOMContentLoaded", () => {
                         chosenEngine = localEngineSelect ? localEngineSelect.value : "faster-whisper";
                         chosenModel = localModelSelect ? localModelSelect.value : "base";
                     } else {
-                        const prov = cloudProviderSelect.value;
-                        apiKey = cloudApiKeyInput.value.trim() || null;
-                        if (prov.startsWith("custom_")) {
-                            const customProv = getCustomProviders().find(p => p.id === prov);
-                            chosenEngine = "custom";
-                            if (customProv) {
-                                baseUrl = (cloudBaseUrlInput && cloudBaseUrlInput.value.trim()) || customProv.base_url;
-                                chosenModel = (cloudCustomModelInput && cloudCustomModelInput.value.trim()) || customProv.default_model;
-                                if (!apiKey) apiKey = customProv.api_key || null;
-                            }
-                        } else if (prov === "custom") {
-                            chosenEngine = "custom";
-                            chosenModel = cloudCustomModelInput?.value.trim() || "whisper-1";
-                            baseUrl = cloudBaseUrlInput?.value.trim() || null;
-                        } else {
-                            chosenEngine = prov;
-                            chosenModel = cloudModelSelect.value === "custom" ? (cloudCustomModelInput?.value.trim() || "whisper-1") : cloudModelSelect.value;
-                        }
+                        const prov = cloudProviderSelect ? cloudProviderSelect.value : "groq";
+                        apiKey = getApiKeyForProvider(prov) || null;
+                        baseUrl = getBaseUrlForProvider(prov);
+                        chosenModel = cloudModelSelect ? cloudModelSelect.value : "whisper-large-v3";
+                        chosenEngine = prov.startsWith("custom_") ? "custom" : prov;
                     }
 
                     const payload = {
@@ -1072,6 +1108,7 @@ document.addEventListener("DOMContentLoaded", () => {
     function setupLLMActions() {
         const actionBtns = document.querySelectorAll(".llm-action-btn");
         const providerSel = document.getElementById("llm-provider-select");
+        const modelSel = document.getElementById("llm-model-select");
         const targetLangSel = document.getElementById("llm-target-lang");
         const outputBox = document.getElementById("llm-output-box");
         const outputTitle = document.getElementById("llm-output-title");
@@ -1079,31 +1116,36 @@ document.addEventListener("DOMContentLoaded", () => {
         const copyLlmBtn = document.getElementById("copy-llm-btn");
         const closeLlmBtn = document.getElementById("close-llm-btn");
 
-        const customSettings = document.getElementById("llm-custom-settings");
-        const customUrlInput = document.getElementById("llm-custom-url");
-        const customModelInput = document.getElementById("llm-custom-model");
-
         if (providerSel) {
-            populateCustomProviderOptions();
             providerSel.addEventListener("change", () => {
-                if (customSettings) {
-                    if (providerSel.value === "custom") {
-                        customSettings.classList.remove("hidden");
-                    } else {
-                        customSettings.classList.add("hidden");
-                    }
-                }
+                updateLLMModels();
             });
         }
 
         actionBtns.forEach(btn => {
             btn.addEventListener("click", async () => {
-                if (!state.activeItem || !state.activeItem.result) return;
+                if (!state.activeItem || !state.activeItem.result) {
+                    showToast("Selecione uma transcrição ativa para processar.");
+                    return;
+                }
                 const action = btn.dataset.action;
-                const rawProvider = providerSel ? providerSel.value : "groq";
-                let provider = rawProvider;
+                const rawProv = providerSel ? providerSel.value : "groq";
                 const targetLang = targetLangSel ? targetLangSel.value : "pt";
-                let apiKey = (cloudApiKeyInput && cloudApiKeyInput.value.trim()) || localStorage.getItem(`transcribe_key_${rawProvider}`) || "";
+
+                let provider = rawProv;
+                let baseUrl = getBaseUrlForProvider(rawProv);
+                let apiKey = getApiKeyForProvider(rawProv);
+                let chosenModel = modelSel ? modelSel.value : null;
+
+                if (rawProv.startsWith("custom_")) {
+                    provider = "custom";
+                }
+
+                if (!apiKey && provider !== "custom") {
+                    showToast("Por favor, configure sua chave de API na Central de IA.");
+                    openProvidersModal();
+                    return;
+                }
 
                 const actionTitles = {
                     summary: "Resumo Executivo",
@@ -1112,27 +1154,12 @@ document.addEventListener("DOMContentLoaded", () => {
                     translate: `Tradução para ${targetLang.toUpperCase()}`
                 };
 
-                let customUrl = null;
-                let customModel = null;
-                let displayName = rawProvider.toUpperCase();
-
-                if (rawProvider.startsWith("custom_")) {
-                    const customProv = getCustomProviders().find(p => p.id === rawProvider);
-                    provider = "custom";
-                    if (customProv) {
-                        customUrl = customProv.base_url;
-                        customModel = customProv.default_model;
-                        displayName = customProv.name;
-                        apiKey = customProv.api_key || apiKey || "";
-                    }
-                } else if (rawProvider === "custom") {
-                    customUrl = customUrlInput ? customUrlInput.value.trim() : null;
-                    customModel = customModelInput ? customModelInput.value.trim() : null;
-                }
-
                 if (outputBox) outputBox.classList.remove("hidden");
-                if (outputTitle) outputTitle.textContent = actionTitles[action] || "Processando com IA...";
-                if (outputContent) outputContent.innerHTML = `<span style="color: var(--text-dim);">Aguarde... conectando ao provedor ${escapeHtml(displayName)}</span>`;
+                if (outputTitle) {
+                    outputTitle.innerHTML = `<span data-icon="fileText" data-icon-class="ui-icon ui-icon-sm"></span> <span>${actionTitles[action] || "Processando com IA..."}</span>`;
+                    if (window.AppIcons) window.AppIcons.renderAll();
+                }
+                if (outputContent) outputContent.innerHTML = `<span style="color: var(--text-dim);">Aguarde... conectando ao provedor de IA...</span>`;
 
                 try {
                     const resp = await apiRequest("/api/summarize", {
@@ -1144,9 +1171,9 @@ document.addEventListener("DOMContentLoaded", () => {
                             action: action,
                             target_language: targetLang,
                             provider: provider,
-                            api_key: apiKey,
-                            base_url: customUrl,
-                            model: customModel
+                            api_key: apiKey || null,
+                            base_url: baseUrl || null,
+                            model: chosenModel || null
                         })
                     });
 
@@ -1396,11 +1423,11 @@ document.addEventListener("DOMContentLoaded", () => {
         if (state.mode === "cloud") {
             const provider = cloudProviderSelect ? cloudProviderSelect.value : "";
             const isCustom = provider === "custom" || provider.startsWith("custom_");
-            const key = cloudApiKeyInput.value.trim();
+            const key = getApiKeyForProvider(provider);
             if (!key && !isCustom) valid = false;
         }
 
-        startTranscribeBtn.disabled = !valid;
+        if (startTranscribeBtn) startTranscribeBtn.disabled = !valid;
     }
 
     // Player de Áudio Integrado
@@ -1783,39 +1810,18 @@ document.addEventListener("DOMContentLoaded", () => {
         if (state.mode === "local") {
             const chosenEngine = localEngineSelect ? localEngineSelect.value : "faster-whisper";
             formData.append("provider", chosenEngine);
-            formData.append("model", localModelSelect.value);
+            formData.append("model", localModelSelect ? localModelSelect.value : "base");
         } else {
-            const prov = cloudProviderSelect.value;
-            let actualProv = prov;
-            let baseUrl = null;
-            let key = cloudApiKeyInput.value.trim();
-            let modelVal = cloudModelSelect.value;
-
-            if (prov.startsWith("custom_")) {
-                const customProv = getCustomProviders().find(p => p.id === prov);
-                actualProv = "custom";
-                if (customProv) {
-                    baseUrl = (cloudBaseUrlInput && cloudBaseUrlInput.value.trim()) || customProv.base_url;
-                    modelVal = (cloudCustomModelInput && cloudCustomModelInput.value.trim()) || customProv.default_model;
-                    if (!key) key = customProv.api_key || "";
-                }
-            } else if (prov === "custom") {
-                const isCustomModel = cloudModelSelect.value === "custom";
-                modelVal = isCustomModel ? (cloudCustomModelInput?.value.trim() || "whisper-1") : cloudModelSelect.value;
-                if (cloudBaseUrlInput && cloudBaseUrlInput.value.trim()) {
-                    baseUrl = cloudBaseUrlInput.value.trim();
-                }
-            } else {
-                const isCustomModel = cloudModelSelect.value === "custom";
-                modelVal = isCustomModel ? (cloudCustomModelInput?.value.trim() || "whisper-1") : cloudModelSelect.value;
-            }
+            const prov = cloudProviderSelect ? cloudProviderSelect.value : "groq";
+            const actualProv = prov.startsWith("custom_") ? "custom" : prov;
+            const modelVal = cloudModelSelect ? cloudModelSelect.value : "whisper-large-v3";
+            const key = getApiKeyForProvider(prov);
+            const baseUrl = getBaseUrlForProvider(prov);
 
             formData.append("provider", actualProv);
             formData.append("model", modelVal);
-            formData.append("api_key", key);
-            if (baseUrl) {
-                formData.append("base_url", baseUrl);
-            }
+            if (key) formData.append("api_key", key);
+            if (baseUrl) formData.append("base_url", baseUrl);
         }
 
         formData.append("language", audioLanguageSelect.value);
@@ -1923,6 +1929,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     function showTranscriptionResult(item) {
+        if (window.__switchToStudio) window.__switchToStudio();
         state.activeItem = item;
         const res = item.result || {};
         const displayName = item.file ? item.file.name : (item.filename || "Transcrição");
@@ -2156,7 +2163,7 @@ document.addEventListener("DOMContentLoaded", () => {
         if (!listEl) return;
 
         if (list.length === 0) {
-            listEl.innerHTML = `<div class="empty-providers-hint">Nenhuma conexão personalizada ativa. Adicione uma no formulário abaixo!</div>`;
+            listEl.innerHTML = `<div class="empty-providers-hint">Nenhum servidor personalizado configurado. Adicione um no formulário abaixo!</div>`;
             return;
         }
 
@@ -2174,6 +2181,9 @@ document.addEventListener("DOMContentLoaded", () => {
             const safeUrl = escapeHtml(item.base_url);
             const safeModel = escapeHtml(item.default_model || "Padrão");
             const hasKey = !!item.api_key;
+            const keyBadge = hasKey 
+                ? `<span class="badge-subtle"><span data-icon="key" data-icon-class="ui-icon ui-icon-sm"></span> Com chave</span>` 
+                : `<span class="badge-subtle"><span data-icon="lock" data-icon-class="ui-icon ui-icon-sm"></span> Sem chave (local)</span>`;
 
             return `
                 <div class="custom-provider-item" data-id="${item.id}">
@@ -2181,10 +2191,10 @@ document.addEventListener("DOMContentLoaded", () => {
                         <div class="custom-prov-title">
                             <strong>${safeName}</strong>
                             ${typeBadge}
-                            ${hasKey ? '<span style="font-size: 0.7rem; color: var(--text-dim); background: rgba(255,255,255,0.05); padding: 1px 5px; border-radius: 3px;">🔑 Com chave</span>' : '<span style="font-size: 0.7rem; color: var(--text-dim);">🔓 Sem chave (local)</span>'}
+                            ${keyBadge}
                         </div>
                         <div class="custom-prov-sub">
-                            <span title="${safeUrl}">🌐 ${safeUrl}</span> • <span>📦 ${safeModel}</span>
+                            <span title="${safeUrl}"><span data-icon="globe" data-icon-class="ui-icon ui-icon-sm"></span> ${safeUrl}</span> • <span><span data-icon="server" data-icon-class="ui-icon ui-icon-sm"></span> ${safeModel}</span>
                         </div>
                     </div>
                     <div class="custom-prov-actions">
@@ -2204,63 +2214,24 @@ document.addEventListener("DOMContentLoaded", () => {
                 const filtered = getCustomProviders().filter(p => p.id !== id);
                 saveCustomProviders(filtered);
                 renderCustomProvidersList();
-                populateCustomProviderOptions();
-                updateCloudModels();
+                populateAllProviderSelects();
                 showToast("Conexão removida com sucesso!");
             });
         });
-    }
-
-    function populateCustomProviderOptions() {
-        const list = getCustomProviders();
-
-        // 1. No Select de Motores de Nuvem (#cloud-provider)
-        if (cloudProviderSelect) {
-            const prevGroup = cloudProviderSelect.querySelector("optgroup[data-custom-group='true']");
-            if (prevGroup) prevGroup.remove();
-
-            const transcribeProviders = list.filter(p => p.type === "all" || p.type === "transcribe");
-            if (transcribeProviders.length > 0) {
-                const optgroup = document.createElement("optgroup");
-                optgroup.label = "── Conexões Personalizadas ──";
-                optgroup.dataset.customGroup = "true";
-                transcribeProviders.forEach(p => {
-                    const opt = document.createElement("option");
-                    opt.value = p.id;
-                    opt.textContent = `⚡ ${p.name}`;
-                    optgroup.appendChild(opt);
-                });
-                cloudProviderSelect.appendChild(optgroup);
-            }
-        }
-
-        // 2. No Select de IA (#llm-provider-select)
-        const llmProviderSel = document.getElementById("llm-provider-select");
-        if (llmProviderSel) {
-            const prevLlmGroup = llmProviderSel.querySelector("optgroup[data-custom-group='true']");
-            if (prevLlmGroup) prevLlmGroup.remove();
-
-            const llmProviders = list.filter(p => p.type === "all" || p.type === "llm");
-            if (llmProviders.length > 0) {
-                const optgroup = document.createElement("optgroup");
-                optgroup.label = "── Conexões Personalizadas ──";
-                optgroup.dataset.customGroup = "true";
-                llmProviders.forEach(p => {
-                    const opt = document.createElement("option");
-                    opt.value = p.id;
-                    opt.textContent = `⚡ ${p.name}`;
-                    optgroup.appendChild(opt);
-                });
-                llmProviderSel.appendChild(optgroup);
-            }
-        }
     }
 
     function openProvidersModal() {
         const modal = document.getElementById("modal-custom-providers");
         if (modal) {
             modal.classList.remove("hidden");
+            const kGroq = document.getElementById("modal-key-groq");
+            const kOpenai = document.getElementById("modal-key-openai");
+            const kGemini = document.getElementById("modal-key-gemini");
+            if (kGroq) kGroq.value = localStorage.getItem("transcribe_key_groq") || "";
+            if (kOpenai) kOpenai.value = localStorage.getItem("transcribe_key_openai") || "";
+            if (kGemini) kGemini.value = localStorage.getItem("transcribe_key_gemini") || "";
             renderCustomProvidersList();
+            if (window.AppIcons) window.AppIcons.renderAll();
         }
     }
 
@@ -2277,6 +2248,11 @@ document.addEventListener("DOMContentLoaded", () => {
         const btnClose = document.getElementById("btn-close-providers-modal");
         const modal = document.getElementById("modal-custom-providers");
         const formNew = document.getElementById("form-new-custom-provider");
+        const tabCloud = document.getElementById("tab-modal-cloud");
+        const tabCustom = document.getElementById("tab-modal-custom");
+        const viewCloud = document.getElementById("modal-view-cloud");
+        const viewCustom = document.getElementById("modal-view-custom");
+        const btnSaveKeys = document.getElementById("btn-save-cloud-keys");
 
         if (btnOpen) btnOpen.addEventListener("click", openProvidersModal);
         if (btnOpenLlm) btnOpenLlm.addEventListener("click", openProvidersModal);
@@ -2284,6 +2260,35 @@ document.addEventListener("DOMContentLoaded", () => {
         if (modal) {
             modal.addEventListener("click", (e) => {
                 if (e.target === modal) closeProvidersModal();
+            });
+        }
+
+        if (tabCloud && tabCustom) {
+            tabCloud.addEventListener("click", () => {
+                tabCloud.classList.add("active");
+                tabCustom.classList.remove("active");
+                if (viewCloud) viewCloud.classList.remove("hidden");
+                if (viewCustom) viewCustom.classList.add("hidden");
+            });
+
+            tabCustom.addEventListener("click", () => {
+                tabCustom.classList.add("active");
+                tabCloud.classList.remove("active");
+                if (viewCustom) viewCustom.classList.remove("hidden");
+                if (viewCloud) viewCloud.classList.add("hidden");
+            });
+        }
+
+        if (btnSaveKeys) {
+            btnSaveKeys.addEventListener("click", () => {
+                const kGroq = document.getElementById("modal-key-groq");
+                const kOpenai = document.getElementById("modal-key-openai");
+                const kGemini = document.getElementById("modal-key-gemini");
+                if (kGroq) localStorage.setItem("transcribe_key_groq", kGroq.value.trim());
+                if (kOpenai) localStorage.setItem("transcribe_key_openai", kOpenai.value.trim());
+                if (kGemini) localStorage.setItem("transcribe_key_gemini", kGemini.value.trim());
+                showToast("Chaves de API salvas com sucesso!");
+                updateStartButtonState();
             });
         }
 
@@ -2321,18 +2326,18 @@ document.addEventListener("DOMContentLoaded", () => {
                 saveCustomProviders(current);
 
                 renderCustomProvidersList();
-                populateCustomProviderOptions();
+                populateAllProviderSelects();
 
                 if (nameInput) nameInput.value = "";
                 if (urlInput) urlInput.value = "";
                 if (modelInput) modelInput.value = "";
                 if (keyInput) keyInput.value = "";
 
-                showToast(`Conexão "${name}" salva com sucesso!`);
+                showToast(`Servidor "${name}" conectado com sucesso!`);
             });
         }
 
-        populateCustomProviderOptions();
+        populateAllProviderSelects();
     }
 
     function resetTranscriptView() {

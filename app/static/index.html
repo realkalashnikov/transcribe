@@ -81,10 +81,10 @@
                 const llm = document.getElementById("llm-actions-card");
                 if (llm) llm.classList.remove("hidden");
                 const outBox = document.getElementById("llm-output-box");
+                if (outBox) outBox.classList.remove("hidden");
                 const outTitle = document.getElementById("llm-output-title");
                 const outContent = document.getElementById("llm-output-content");
-                if (outBox) outBox.classList.remove("hidden");
-                if (outTitle) outTitle.innerHTML = `<span>📝 Resumo Executivo (Groq / Llama-3.3-70B)</span>`;
+                if (outTitle) outTitle.innerHTML = `<span class="ui-icon ui-icon-sm" style="display:inline-flex; vertical-align:middle; margin-right:4px;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg></span><span>Resumo Executivo (Groq / Llama 3.3 70B)</span>`;
                 if (outContent) outContent.innerHTML = `<strong>Visão Geral do Episódio:</strong>\n• <strong>Arquitetura Local:</strong> Apresentação do faster-whisper com quantização int8, alcançando processamento 4x mais rápido na CPU com consumo mínimo de RAM.\n• <strong>Privacidade & Segurança:</strong> Transcrição e arquivos persistidos 100% no disco local, sem dependência de nuvem ou vazamento de dados.\n• <strong>Novos Recursos:</strong> Demonstração de sincronização por palavra (Karaoke), edição inline e ingestão direta de links do YouTube com proteção anti-SSRF.\n\n<strong>Ações & Próximos Passos:</strong>\n1. Validar suporte para novos idiomas e romanização fonética automática.\n2. Expandir exportações para contêineres MP4 com legendas embutidas.`;
             } catch(e) {}
         });
@@ -102,9 +102,9 @@
                 </div>
             </div>
             <div class="header-actions">
-                <span id="hardware-badge" class="badge badge-cuda">
-                    <span data-icon="zap" data-icon-class="ui-icon ui-icon-sm"></span>
-                    <span id="hardware-text">Motor Local Ativo (Faster-Whisper)</span>
+                <span id="hardware-badge" class="badge badge-cpu">
+                    <span data-icon="cpu" data-icon-class="ui-icon ui-icon-sm"></span>
+                    <span id="hardware-text">Hardware: Processamento em CPU (int8)</span>
                 </span>
                 <button type="button" id="remote-btn" class="btn btn-outline btn-remote">
                     <span data-icon="smartphone" data-icon-class="ui-icon ui-icon-sm"></span>
@@ -115,14 +115,98 @@
 
         <!-- Grade Principal -->
         <main class="main-grid">
-            <!-- Painel Esquerdo: Configurações e Upload -->
+            <!-- Painel Esquerdo: Entrada e Configurações -->
             <section class="control-panel">
-                <!-- Seletor de Modo -->
-                <div class="card mode-card">
+                <!-- Card 1: Entrada de Mídia (Arquivo, Link Web ou Microfone) -->
+                <div class="card dropzone-card" id="media-ingest-card">
                     <div class="card-title">
-                        <span data-icon="layers" data-icon-class="ui-icon"></span>
-                        <span>Motor de Transcrição</span>
+                        <span data-icon="fileAudio" data-icon-class="ui-icon"></span>
+                        <span>Entrada de Mídia</span>
                     </div>
+                    <div class="dropzone-tabs">
+                        <button type="button" class="dropzone-tab-btn active" id="tab-dropzone-file">
+                            <span data-icon="upload" data-icon-class="ui-icon ui-icon-sm"></span>
+                            <span>Arquivo Local</span>
+                        </button>
+                        <button type="button" class="dropzone-tab-btn" id="tab-dropzone-url">
+                            <span data-icon="link" data-icon-class="ui-icon ui-icon-sm"></span>
+                            <span>Link Web</span>
+                        </button>
+                        <button type="button" class="dropzone-tab-btn" id="tab-dropzone-mic">
+                            <span data-icon="mic" data-icon-class="ui-icon ui-icon-sm"></span>
+                            <span>Microfone</span>
+                        </button>
+                    </div>
+
+                    <!-- Ingestão 1: Dropzone Arquivos -->
+                    <div class="dropzone" id="dropzone">
+                        <input type="file" id="file-input" multiple accept="audio/*,video/*" class="file-input">
+                        <div class="dropzone-content">
+                            <div class="upload-icon-box" data-icon="upload" data-icon-class="ui-icon ui-icon-lg"></div>
+                            <h4>Arraste arquivos aqui</h4>
+                            <p>ou <span class="browse-link">procure no computador</span></p>
+                            <span class="file-formats">MP3, WAV, M4A, OGG, FLAC, MP4, MKV, WebM</span>
+                        </div>
+                    </div>
+
+                    <!-- Ingestão 2: URL Web -->
+                    <div class="url-ingest-container hidden" id="url-ingest-container">
+                        <div class="url-dropzone-content">
+                            <div class="upload-icon-box" data-icon="globe" data-icon-class="ui-icon ui-icon-lg"></div>
+                            <h4>Transcrever via Link Web</h4>
+                            <p class="url-hint">YouTube, Twitter/X, SoundCloud ou áudios online</p>
+                            <div class="url-input-group">
+                                <input type="url" id="web-url-input" class="form-control" placeholder="https://www.youtube.com/watch?v=...">
+                                <button type="button" id="web-url-btn" class="btn btn-primary">
+                                    <span data-icon="download" data-icon-class="ui-icon ui-icon-sm"></span>
+                                    <span>Baixar e Iniciar</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Ingestão 3: Microfone Integrado -->
+                    <div class="mic-ingest-container hidden" id="mic-ingest-container">
+                        <div class="record-card" id="record-card" style="border: none; background: transparent; padding: 0;">
+                            <div class="record-idle" id="record-idle">
+                                <div class="mic-idle-content">
+                                    <div class="upload-icon-box" data-icon="mic" data-icon-class="ui-icon ui-icon-lg"></div>
+                                    <h4>Gravação ao Vivo</h4>
+                                    <p class="url-hint">Capture áudio direto do microfone do dispositivo</p>
+                                    <button type="button" id="record-btn" class="btn btn-secondary btn-block">
+                                        <span data-icon="mic" data-icon-class="ui-icon"></span>
+                                        <span>Iniciar Gravação</span>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="record-active hidden" id="record-active">
+                                <div class="recording-indicator">
+                                    <span class="recording-pulse"></span>
+                                    <span class="recording-time" id="recording-timer">00:00</span>
+                                    <span class="recording-label">Gravando áudio ao vivo...</span>
+                                </div>
+                                <div class="recording-buttons">
+                                    <button type="button" id="stop-record-btn" class="btn btn-danger btn-sm">
+                                        <span data-icon="square" data-icon-class="ui-icon ui-icon-sm"></span>
+                                        <span>Concluir</span>
+                                    </button>
+                                    <button type="button" id="cancel-record-btn" class="btn btn-text btn-sm">
+                                        Cancelar
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Card 2: Motor & Configurações de Transcrição -->
+                <div class="card settings-card" id="settings-card">
+                    <div class="card-title">
+                        <span data-icon="settings" data-icon-class="ui-icon"></span>
+                        <span>Motor & Parâmetros</span>
+                    </div>
+                    
+                    <!-- Segmented Switcher Local vs Nuvem -->
                     <div class="tabs">
                         <button type="button" class="tab-btn active" data-mode="local" id="tab-local">
                             <span class="tab-icon" data-icon="laptop"></span>
@@ -139,84 +223,54 @@
                             </div>
                         </button>
                     </div>
-                </div>
 
-                <!-- Configurações do Modo Local -->
-                <div id="local-settings" class="card settings-card">
-                    <div class="card-title">
-                        <span data-icon="settings" data-icon-class="ui-icon"></span>
-                        <span>Configurações Locais</span>
-                    </div>
-                    <div class="form-group">
-                        <label for="local-engine">Motor Local</label>
-                        <select id="local-engine" class="form-control">
-                            <option value="faster-whisper" selected>Faster-Whisper (Python / CTranslate2 - Recomendado)</option>
-                            <option value="whisper.cpp">Whisper.cpp (C++ Otimizado / GGML)</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label for="local-model">Nível do Modelo Whisper</label>
-                        <select id="local-model" class="form-control">
-                            <option value="base" selected>Base (Equilíbrio rápido, recomendado para CPU)</option>
-                        </select>
-                        <span class="help-text">Modelos menores são mais rápidos; maiores têm vocabulário mais apurado.</span>
-                    </div>
-                </div>
-
-                <!-- Configurações do Modo Nuvem -->
-                <div id="cloud-settings" class="card settings-card hidden">
-                    <div class="card-title">
-                        <span data-icon="cloud" data-icon-class="ui-icon"></span>
-                        <span>Configurações de Nuvem</span>
-                    </div>
-                    <div class="form-group">
-                        <div class="label-with-link">
-                            <label for="cloud-provider">Provedor de API</label>
-                            <button type="button" id="btn-open-custom-providers" class="link-btn-subtle" title="Gerenciar servidores e modelos personalizados">
-                                <span data-icon="settings" data-icon-class="ui-icon ui-icon-sm"></span>
-                                Conectar Servidor / API
-                            </button>
+                    <!-- Configurações do Modo Local -->
+                    <div id="local-settings" class="engine-settings-block">
+                        <div class="form-group">
+                            <label for="local-engine">Motor Local</label>
+                            <select id="local-engine" class="form-control">
+                                <option value="faster-whisper" selected>Faster-Whisper (Python / CTranslate2)</option>
+                                <option value="whisper.cpp">Whisper.cpp (C++ Otimizado / GGML)</option>
+                            </select>
                         </div>
-                        <select id="cloud-provider" class="form-control">
-                            <option value="groq" selected>Groq (Whisper-large-v3 ultra-rápido)</option>
-                            <option value="openai">OpenAI (Whisper-1 oficial)</option>
-                            <option value="gemini">Google Gemini (Gemini 2.5 Flash)</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label for="cloud-model">Modelo</label>
-                        <select id="cloud-model" class="form-control"></select>
-                    </div>
-                    <div class="form-group" id="cloud-custom-model-group" style="display: none;">
-                        <label for="cloud-custom-model">Nome do Modelo Personalizado</label>
-                        <input type="text" id="cloud-custom-model" class="form-control" placeholder="Ex: whisper-large-v3, custom-whisper ou seu modelo...">
-                    </div>
-                    <div class="form-group" id="cloud-base-url-group" style="display: none;">
-                        <label for="cloud-base-url">URL Base / Endpoint (OpenAI-compatível)</label>
-                        <input type="text" id="cloud-base-url" class="form-control" placeholder="Ex: http://localhost:11434/v1 ou https://openrouter.ai/api/v1">
-                        <span class="help-text">Compatível com Ollama, vLLM, OpenRouter, LocalAI e endpoints customizados.</span>
-                    </div>
-                    <div class="form-group">
-                        <div class="label-with-link">
-                            <label for="cloud-api-key">
-                                <span data-icon="key" data-icon-class="ui-icon ui-icon-sm"></span>
-                                Chave de API
-                            </label>
-                            <a href="#" id="api-key-link" target="_blank" class="external-link">
-                                Obter chave <span data-icon="link" data-icon-class="ui-icon ui-icon-sm"></span>
-                            </a>
+                        <div class="form-group">
+                            <label for="local-model">Nível do Modelo Whisper</label>
+                            <select id="local-model" class="form-control">
+                                <option value="base" selected>Base (Equilíbrio rápido, recomendado para CPU)</option>
+                            </select>
+                            <span class="help-text">Modelos menores são mais rápidos; maiores têm maior precisão.</span>
                         </div>
-                        <input type="password" id="cloud-api-key" class="form-control" placeholder="Cole sua API Key aqui...">
-                        <span class="help-text">Salva com segurança no navegador (localStorage).</span>
                     </div>
-                </div>
 
-                <!-- Opções Gerais de Transcrição -->
-                <div class="card settings-card">
-                    <div class="card-title">
-                        <span data-icon="globe" data-icon-class="ui-icon"></span>
-                        <span>Idioma e Tarefa</span>
+                    <!-- Configurações do Modo Nuvem -->
+                    <div id="cloud-settings" class="engine-settings-block hidden">
+                        <div class="form-group">
+                            <div class="label-with-link">
+                                <label for="cloud-provider">Provedor de IA</label>
+                                <button type="button" id="btn-open-custom-providers" class="link-btn-subtle" title="Gerenciar chaves e conexões de servidores">
+                                    <span data-icon="settings" data-icon-class="ui-icon ui-icon-sm"></span>
+                                    Gerenciar Conexões
+                                </button>
+                            </div>
+                            <select id="cloud-provider" class="form-control">
+                                <option value="groq" selected>Groq Cloud</option>
+                                <option value="openai">OpenAI</option>
+                                <option value="gemini">Google Gemini</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="cloud-model">Modelo de Transcrição</label>
+                            <select id="cloud-model" class="form-control">
+                                <option value="whisper-large-v3-turbo" selected>Whisper-Large-v3-Turbo (Recomendado)</option>
+                                <option value="whisper-large-v3">Whisper-Large-v3 (Precisão Máxima)</option>
+                            </select>
+                            <span class="help-text">Modelos na nuvem ou em servidores próprios compatíveis com Whisper.</span>
+                        </div>
                     </div>
+
+                    <div class="settings-divider"></div>
+
+                    <!-- Idioma e Tarefa -->
                     <div class="form-row">
                         <div class="form-group flex-1">
                             <label for="audio-language">Idioma do Áudio</label>
@@ -235,291 +289,252 @@
                             </select>
                         </div>
                     </div>
-                    <div class="form-group" style="margin-top: 10px;">
-                        <label for="initial-prompt">Vocabulário Custom / Prompt Inicial <span style="font-size: 0.8rem; color: var(--text-muted); font-weight: normal;">(Opcional — termos técnicos, nomes próprios, jargão)</span></label>
-                        <input type="text" id="initial-prompt" class="form-control" maxlength="500" placeholder="Ex: Kubernetes, PostgreSQL, TypeScript, Rafael, Transcribe Studio">
-                    </div>
-                </div>
-
-                <!-- Área de Drag & Drop e Ingestão por URL -->
-                <div class="card dropzone-card">
-                    <div class="dropzone-tabs">
-                        <button type="button" class="dropzone-tab-btn active" id="tab-dropzone-file">
-                            <span data-icon="fileAudio" data-icon-class="ui-icon ui-icon-sm"></span>
-                            <span>Arquivo Local</span>
-                        </button>
-                        <button type="button" class="dropzone-tab-btn" id="tab-dropzone-url">
-                            <span data-icon="link" data-icon-class="ui-icon ui-icon-sm"></span>
-                            <span>Link Web (YouTube / X)</span>
-                        </button>
-                    </div>
-
-                    <div class="dropzone" id="dropzone">
-                        <input type="file" id="file-input" multiple accept="audio/*,video/*" class="file-input">
-                        <div class="dropzone-content">
-                            <div class="upload-icon-box" data-icon="upload" data-icon-class="ui-icon ui-icon-lg"></div>
-                            <h4>Arraste arquivos aqui</h4>
-                            <p>ou <span class="browse-link">procure no computador</span></p>
-                            <span class="file-formats">MP3, WAV, M4A, OGG, FLAC, MP4, MKV, WebM...</span>
-                        </div>
-                    </div>
-
-                    <div class="url-ingest-container hidden" id="url-ingest-container">
-                        <div class="url-dropzone-content">
-                            <div class="upload-icon-box" data-icon="globe" data-icon-class="ui-icon ui-icon-lg"></div>
-                            <h4>Transcrever via Link Web</h4>
-                            <p class="url-hint">Cole a URL de um vídeo ou áudio da internet</p>
-                            <div class="url-input-group">
-                                <input type="url" id="web-url-input" class="form-control" placeholder="https://www.youtube.com/watch?v=...">
-                                <button type="button" id="web-url-btn" class="btn btn-primary">
-                                    <span data-icon="download" data-icon-class="ui-icon ui-icon-sm"></span>
-                                    <span>Baixar e Iniciar</span>
-                                </button>
-                            </div>
-                            <span class="file-formats">YouTube, Twitter/X, SoundCloud e streams de áudio/vídeo</span>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Gravação Rápida pelo Microfone -->
-                <div class="card record-card" id="record-card">
-                    <div class="record-idle" id="record-idle">
-                        <button type="button" id="record-btn" class="btn btn-secondary btn-block">
-                            <span data-icon="mic" data-icon-class="ui-icon"></span>
-                            <span>Gravar Áudio pelo Microfone</span>
-                        </button>
-                    </div>
-                    <div class="record-active hidden" id="record-active">
-                        <div class="recording-indicator">
-                            <span class="recording-pulse"></span>
-                            <span class="recording-time" id="recording-timer">00:00</span>
-                            <span class="recording-label">Gravando áudio...</span>
-                        </div>
-                        <div class="recording-buttons">
-                            <button type="button" id="stop-record-btn" class="btn btn-danger btn-sm">
-                                <span data-icon="square" data-icon-class="ui-icon ui-icon-sm"></span>
-                                <span>Concluir</span>
-                            </button>
-                            <button type="button" id="cancel-record-btn" class="btn btn-text btn-sm">
-                                Cancelar
-                            </button>
-                        </div>
+                    <div class="form-group" style="margin-top: 6px;">
+                        <label for="initial-prompt">Vocabulário / Termos Customizados <span style="font-size: 0.75rem; color: var(--text-dim); font-weight: normal;">(Opcional)</span></label>
+                        <input type="text" id="initial-prompt" class="form-control" maxlength="500" placeholder="Ex: Kubernetes, PostgreSQL, TypeScript, Rafael">
                     </div>
                 </div>
 
                 <!-- Botão de Ação -->
-                <button type="button" id="start-transcribe-btn" class="btn btn-primary btn-block" disabled>
+                <button type="button" id="start-transcribe-btn" class="btn btn-primary btn-block btn-hero-action" disabled>
                     <span data-icon="zap" data-icon-class="ui-icon"></span>
                     <span>Iniciar Transcrição</span>
                 </button>
             </section>
 
-            <!-- Painel Direito: Fila de Arquivos & Resultados -->
+            <!-- Painel Direito: Espaço de Trabalho Studio -->
             <section class="results-panel">
-                <!-- Fila de Arquivos & Histórico Salvo -->
-                <div class="card queue-card">
-                    <div class="card-header-flex">
-                        <div class="panel-tabs">
-                            <button type="button" class="panel-tab-btn active" id="tab-queue">
-                                <span data-icon="fileAudio" data-icon-class="ui-icon ui-icon-sm"></span>
-                                <span>Fila (<span id="queue-count">0</span>)</span>
-                            </button>
-                            <button type="button" class="panel-tab-btn" id="tab-history">
-                                <span data-icon="clock" data-icon-class="ui-icon ui-icon-sm"></span>
-                                <span>Histórico Salvo (<span id="history-count">0</span>)</span>
-                            </button>
-                        </div>
-                        <button type="button" id="clear-queue-btn" class="btn-text" style="display: none;">
-                            <span data-icon="trash" data-icon-class="ui-icon ui-icon-sm"></span> Limpar fila
+                <div class="workspace-header-bar">
+                    <div class="panel-tabs">
+                        <button type="button" class="panel-tab-btn active" id="tab-studio">
+                            <span data-icon="fileText" data-icon-class="ui-icon ui-icon-sm"></span>
+                            <span>Estúdio de Transcrição</span>
+                        </button>
+                        <button type="button" class="panel-tab-btn" id="tab-history">
+                            <span data-icon="clock" data-icon-class="ui-icon ui-icon-sm"></span>
+                            <span>Histórico Salvo (<span id="history-count">0</span>)</span>
+                        </button>
+                        <button type="button" class="panel-tab-btn" id="tab-queue">
+                            <span data-icon="fileAudio" data-icon-class="ui-icon ui-icon-sm"></span>
+                            <span>Fila (<span id="queue-count">0</span>)</span>
                         </button>
                     </div>
-                    <div id="file-queue-list" class="queue-list empty">
-                        <p class="empty-msg">Nenhum arquivo adicionado ainda.</p>
+                    <button type="button" id="clear-queue-btn" class="btn-text" style="display: none;">
+                        <span data-icon="trash" data-icon-class="ui-icon ui-icon-sm"></span> Limpar fila
+                    </button>
+                </div>
+
+                <!-- Visão 1: Estúdio de Transcrição Ativa -->
+                <div id="studio-view" class="studio-workspace-view">
+                    <!-- Visualizador de Transcrição -->
+                    <div class="card transcript-card" id="transcript-card">
+                        <div class="card-header-flex studio-card-header">
+                            <div>
+                                <div class="card-title" id="transcript-filename" style="margin-bottom: 6px;">
+                                    <span data-icon="fileText" data-icon-class="ui-icon"></span>
+                                    <span>Resultado da Transcrição</span>
+                                </div>
+                                <div class="meta-tags" id="transcript-meta" style="display: none;">
+                                    <span class="badge" id="meta-duration">
+                                        <span data-icon="clock" data-icon-class="ui-icon ui-icon-sm"></span> 0.0s
+                                    </span>
+                                    <span class="badge" id="meta-lang">
+                                        <span data-icon="globe" data-icon-class="ui-icon ui-icon-sm"></span> Idioma: -
+                                    </span>
+                                    <span class="badge" id="meta-engine">
+                                        <span data-icon="zap" data-icon-class="ui-icon ui-icon-sm"></span> Motor: -
+                                    </span>
+                                </div>
+                            </div>
+                            <div class="export-actions" id="export-actions" style="display: none;">
+                                <button type="button" class="btn btn-sm btn-primary hidden" id="save-edit-btn" title="Salvar alterações no disco">
+                                    <span data-icon="save" data-icon-class="ui-icon ui-icon-sm"></span> Salvar Revisão
+                                </button>
+                                <button type="button" class="btn btn-sm btn-outline hidden" id="toggle-romanize-btn" title="Mostrar/Ocultar Romanização Fonética">
+                                    <span data-icon="globe" data-icon-class="ui-icon ui-icon-sm"></span> Romanização
+                                </button>
+                                <button type="button" class="btn btn-sm btn-outline" id="copy-btn" title="Copiar texto puro">
+                                    <span data-icon="copy" data-icon-class="ui-icon ui-icon-sm"></span> Copiar
+                                </button>
+                                <div class="export-group-pills">
+                                    <button type="button" class="btn-export-pill" id="download-txt" title="Baixar texto simples (.txt)">
+                                        <span data-icon="download" data-icon-class="ui-icon ui-icon-sm"></span> TXT
+                                    </button>
+                                    <button type="button" class="btn-export-pill" id="download-srt" title="Baixar legendas com tempo (.srt)">
+                                        <span data-icon="download" data-icon-class="ui-icon ui-icon-sm"></span> SRT
+                                    </button>
+                                    <button type="button" class="btn-export-pill" id="download-vtt" title="Baixar legendas web (.vtt)">
+                                        <span data-icon="download" data-icon-class="ui-icon ui-icon-sm"></span> VTT
+                                    </button>
+                                    <button type="button" class="btn-export-pill" id="download-json" title="Baixar dados estruturados (.json)">
+                                        <span data-icon="download" data-icon-class="ui-icon ui-icon-sm"></span> JSON
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Progresso Geral -->
+                        <div id="progress-container" class="progress-container hidden">
+                            <div class="progress-bar-bg">
+                                <div id="progress-bar-fill" class="progress-bar-fill" style="width: 0%;"></div>
+                            </div>
+                            <div class="progress-info">
+                                <span id="progress-message">Processando...</span>
+                                <span id="progress-percentage">0%</span>
+                            </div>
+                        </div>
+
+                        <!-- Player de Áudio Integrado -->
+                        <div id="audio-player-container" class="audio-player-widget hidden">
+                            <button type="button" id="audio-play-btn" class="audio-play-btn">
+                                <span id="play-btn-icon" data-icon="play" data-icon-class="ui-icon"></span>
+                            </button>
+                            <div class="audio-timeline">
+                                <input type="range" id="audio-scrubber" class="audio-scrubber" value="0" min="0" max="100" step="0.1">
+                                <div class="audio-time-row">
+                                    <span id="audio-current-time">00:00</span>
+                                    <span id="audio-total-time">00:00</span>
+                                </div>
+                            </div>
+                            <audio id="native-audio" style="display: none;"></audio>
+                        </div>
+
+                        <!-- Barra de Estatísticas da Transcrição -->
+                        <div id="stats-strip" class="stats-strip hidden">
+                            <div class="stat-item">
+                                <span class="stat-icon-box" data-icon="clock" data-icon-class="ui-icon ui-icon-sm"></span>
+                                <div>
+                                    <span class="stat-label">Duração</span>
+                                    <span class="stat-value" id="stat-duration">0s</span>
+                                </div>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-icon-box" data-icon="fileText" data-icon-class="ui-icon ui-icon-sm"></span>
+                                <div>
+                                    <span class="stat-label">Palavras</span>
+                                    <span class="stat-value" id="stat-words">0</span>
+                                </div>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-icon-box" data-icon="layers" data-icon-class="ui-icon ui-icon-sm"></span>
+                                <div>
+                                    <span class="stat-label">Caracteres</span>
+                                    <span class="stat-value" id="stat-chars">0</span>
+                                </div>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-icon-box" data-icon="check" data-icon-class="ui-icon ui-icon-sm"></span>
+                                <div>
+                                    <span class="stat-label">Segmentos</span>
+                                    <span class="stat-value" id="stat-segments">0</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Busca no Texto -->
+                        <div id="search-wrapper" class="search-wrapper hidden">
+                            <div class="search-icon-box" data-icon="search" data-icon-class="ui-icon ui-icon-sm"></div>
+                            <input type="text" id="transcript-search" class="form-control search-input" placeholder="Buscar palavras ou trechos na transcrição...">
+                        </div>
+
+                        <!-- Conteúdo da Transcrição -->
+                        <div id="transcript-body" class="transcript-body empty">
+                            <div class="placeholder-state">
+                                <div class="placeholder-icon" data-icon="fileText" data-icon-class="ui-icon ui-icon-xl"></div>
+                                <p>Selecione um arquivo de áudio ou vídeo e clique em "Iniciar Transcrição" para ver o texto com minutagem interativa aqui.</p>
+                            </div>
+                        </div>
                     </div>
-                    <div id="history-list" class="queue-list empty hidden">
+
+                    <!-- Painel de Ações Inteligentes com IA -->
+                    <div class="card llm-actions-card hidden" id="llm-actions-card">
+                        <div class="card-header-flex ai-hub-header">
+                            <div class="card-title" style="margin-bottom: 0;">
+                                <span data-icon="zap" data-icon-class="ui-icon"></span>
+                                <div>
+                                    <span>Ações Inteligentes com IA</span>
+                                    <small class="ai-hub-subtitle">Resumos, atas e tarefas automatizadas com LLMs</small>
+                                </div>
+                            </div>
+                            <div class="llm-header-right">
+                                <select id="llm-provider-select" class="form-control form-control-sm">
+                                    <option value="groq" selected>Groq Cloud</option>
+                                    <option value="openai">OpenAI</option>
+                                    <option value="gemini">Google Gemini</option>
+                                </select>
+                                <select id="llm-model-select" class="form-control form-control-sm">
+                                    <option value="llama-3.3-70b-versatile" selected>Llama 3.3 70B (Recomendado)</option>
+                                </select>
+                                <button type="button" id="btn-open-custom-providers-llm" class="btn btn-sm btn-outline btn-ai-config" title="Gerenciar chaves e conexões de IA">
+                                    <span data-icon="settings" data-icon-class="ui-icon ui-icon-sm"></span>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="llm-buttons-bar">
+                            <button type="button" class="btn btn-sm btn-outline llm-action-btn" data-action="summary">
+                                <span data-icon="fileText" data-icon-class="ui-icon ui-icon-sm"></span>
+                                <span>Resumo Executivo</span>
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline llm-action-btn" data-action="action_items">
+                                <span data-icon="check" data-icon-class="ui-icon ui-icon-sm"></span>
+                                <span>Ata & Próximos Passos</span>
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline llm-action-btn" data-action="bullet_points">
+                                <span data-icon="layers" data-icon-class="ui-icon ui-icon-sm"></span>
+                                <span>Pontos Principais</span>
+                            </button>
+                            <div class="llm-translate-inline">
+                                <button type="button" class="btn btn-sm btn-outline llm-action-btn" data-action="translate">
+                                    <span data-icon="globe" data-icon-class="ui-icon ui-icon-sm"></span>
+                                    <span>Traduzir</span>
+                                </button>
+                                <select id="llm-target-lang" class="form-control form-control-sm">
+                                    <option value="pt" selected>Português</option>
+                                    <option value="en">Inglês</option>
+                                    <option value="es">Espanhol</option>
+                                    <option value="fr">Francês</option>
+                                    <option value="de">Alemão</option>
+                                    <option value="ja">Japonês</option>
+                                    <option value="zh">Chinês</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div id="llm-output-box" class="llm-output-box hidden">
+                            <div class="llm-output-header">
+                                <span class="llm-output-title" id="llm-output-title">Resultado</span>
+                                <div class="llm-output-tools">
+                                    <button type="button" class="btn-text btn-sm" id="copy-llm-btn" title="Copiar">
+                                        <span data-icon="copy" data-icon-class="ui-icon ui-icon-sm"></span> Copiar
+                                    </button>
+                                    <button type="button" class="btn-text btn-sm" id="close-llm-btn" title="Fechar">
+                                        <span data-icon="x" data-icon-class="ui-icon ui-icon-sm"></span>
+                                    </button>
+                                </div>
+                            </div>
+                            <div id="llm-output-content" class="llm-output-content"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Visão 2: Histórico Salvo no Disco -->
+                <div id="history-view" class="card history-workspace-view hidden">
+                    <div class="card-title">
+                        <span data-icon="clock" data-icon-class="ui-icon"></span>
+                        <span>Transcrições Salvas no Disco Local</span>
+                    </div>
+                    <div id="history-list" class="queue-list empty">
                         <p class="empty-msg">Nenhuma transcrição salva no histórico ainda.</p>
                     </div>
                 </div>
 
-                <!-- Visualizador de Transcrição Ativa -->
-                <div class="card transcript-card">
-                    <div class="card-header-flex">
-                        <div>
-                            <div class="card-title" id="transcript-filename" style="margin-bottom: 4px;">
-                                <span data-icon="fileText" data-icon-class="ui-icon"></span>
-                                <span>Resultado da Transcrição</span>
-                            </div>
-                            <div class="meta-tags" id="transcript-meta" style="display: none;">
-                                <span class="badge" id="meta-duration">
-                                    <span data-icon="clock" data-icon-class="ui-icon ui-icon-sm"></span> 0.0s
-                                </span>
-                                <span class="badge" id="meta-lang">
-                                    <span data-icon="globe" data-icon-class="ui-icon ui-icon-sm"></span> Idioma: -
-                                </span>
-                                <span class="badge" id="meta-engine">
-                                    <span data-icon="zap" data-icon-class="ui-icon ui-icon-sm"></span> Motor: -
-                                </span>
-                            </div>
-                        </div>
-                        <div class="export-actions" id="export-actions" style="display: none;">
-                            <button type="button" class="btn btn-sm btn-primary hidden" id="save-edit-btn" title="Salvar alterações no disco">
-                                <span data-icon="save" data-icon-class="ui-icon ui-icon-sm"></span> Salvar Revisão
-                            </button>
-                            <button type="button" class="btn btn-sm btn-outline hidden" id="toggle-romanize-btn" title="Mostrar/Ocultar Romanização Fonética">
-                                <span data-icon="globe" data-icon-class="ui-icon ui-icon-sm"></span> Romanização
-                            </button>
-                            <button type="button" class="btn btn-sm btn-outline" id="copy-btn" title="Copiar texto puro">
-                                <span data-icon="copy" data-icon-class="ui-icon ui-icon-sm"></span> Copiar
-                            </button>
-                            <button type="button" class="btn btn-sm btn-outline" id="download-txt" title="Baixar texto simples (.txt)">
-                                <span data-icon="download" data-icon-class="ui-icon ui-icon-sm"></span> TXT
-                            </button>
-                            <button type="button" class="btn btn-sm btn-outline" id="download-srt" title="Baixar legendas com tempo (.srt)">
-                                <span data-icon="download" data-icon-class="ui-icon ui-icon-sm"></span> SRT
-                            </button>
-                            <button type="button" class="btn btn-sm btn-outline" id="download-vtt" title="Baixar legendas web (.vtt)">
-                                <span data-icon="download" data-icon-class="ui-icon ui-icon-sm"></span> VTT
-                            </button>
-                            <button type="button" class="btn btn-sm btn-outline" id="download-json" title="Baixar dados estruturados (.json)">
-                                <span data-icon="download" data-icon-class="ui-icon ui-icon-sm"></span> JSON
-                            </button>
-                        </div>
+                <!-- Visão 3: Fila de Arquivos -->
+                <div id="queue-view" class="card queue-workspace-view hidden">
+                    <div class="card-title">
+                        <span data-icon="fileAudio" data-icon-class="ui-icon"></span>
+                        <span>Fila de Transcrição</span>
                     </div>
-
-                    <!-- Progresso Geral -->
-                    <div id="progress-container" class="progress-container hidden">
-                        <div class="progress-bar-bg">
-                            <div id="progress-bar-fill" class="progress-bar-fill" style="width: 0%;"></div>
-                        </div>
-                        <div class="progress-info">
-                            <span id="progress-message">Processando...</span>
-                            <span id="progress-percentage">0%</span>
-                        </div>
-                    </div>
-
-                    <!-- Player de Áudio Integrado -->
-                    <div id="audio-player-container" class="audio-player-widget hidden">
-                        <button type="button" id="audio-play-btn" class="audio-play-btn">
-                            <span id="play-btn-icon" data-icon="play" data-icon-class="ui-icon"></span>
-                        </button>
-                        <div class="audio-timeline">
-                            <input type="range" id="audio-scrubber" class="audio-scrubber" value="0" min="0" max="100" step="0.1">
-                            <div class="audio-time-row">
-                                <span id="audio-current-time">00:00</span>
-                                <span id="audio-total-time">00:00</span>
-                            </div>
-                        </div>
-                        <audio id="native-audio" style="display: none;"></audio>
-                    </div>
-
-                    <!-- Barra de Estatísticas da Transcrição -->
-                    <div id="stats-strip" class="stats-strip hidden">
-                        <div class="stat-item">
-                            <span class="stat-label">Duração</span>
-                            <span class="stat-value" id="stat-duration">0s</span>
-                        </div>
-                        <div class="stat-item">
-                            <span class="stat-label">Palavras</span>
-                            <span class="stat-value" id="stat-words">0</span>
-                        </div>
-                        <div class="stat-item">
-                            <span class="stat-label">Caracteres</span>
-                            <span class="stat-value" id="stat-chars">0</span>
-                        </div>
-                        <div class="stat-item">
-                            <span class="stat-label">Segmentos</span>
-                            <span class="stat-value" id="stat-segments">0</span>
-                        </div>
-                    </div>
-
-                    <!-- Busca no Texto -->
-                    <div id="search-wrapper" class="search-wrapper hidden">
-                        <div class="search-icon-box" data-icon="search" data-icon-class="ui-icon ui-icon-sm"></div>
-                        <input type="text" id="transcript-search" class="form-control search-input" placeholder="Buscar palavras ou trechos na transcrição...">
-                    </div>
-
-                    <!-- Conteúdo da Transcrição -->
-                    <div id="transcript-body" class="transcript-body empty">
-                        <div class="placeholder-state">
-                            <div class="placeholder-icon" data-icon="fileText" data-icon-class="ui-icon ui-icon-xl"></div>
-                            <p>Selecione um arquivo de áudio ou vídeo e clique em "Iniciar Transcrição" para ver o texto com minutagem interativa aqui.</p>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Painel de Ações Inteligentes com IA -->
-                <div class="card llm-actions-card hidden" id="llm-actions-card">
-                    <div class="card-header-flex">
-                        <div class="card-title">
-                            <span data-icon="zap" data-icon-class="ui-icon"></span>
-                            <span>Ações Inteligentes com IA</span>
-                        </div>
-                        <div class="llm-header-right" style="display: flex; gap: 8px; align-items: center;">
-                            <select id="llm-provider-select" class="form-control form-control-sm">
-                                <option value="groq" selected>Groq (Llama-3.3-70b)</option>
-                                <option value="gemini">Gemini 2.5 Flash</option>
-                                <option value="openai">OpenAI (GPT-4o-mini)</option>
-                                <option value="ollama">Ollama Local (Offline)</option>
-                            </select>
-                            <button type="button" id="btn-open-custom-providers-llm" class="btn btn-sm btn-outline" title="Conectar ou gerenciar outros modelos e endpoints de IA" style="padding: 5px 8px; display: inline-flex; align-items: center;">
-                                <span data-icon="settings" data-icon-class="ui-icon ui-icon-sm"></span>
-                            </button>
-                        </div>
-                    </div>
-                    <div id="llm-custom-settings" class="llm-custom-settings hidden" style="margin-bottom: 12px; padding: 10px 12px; background: rgba(0,0,0,0.2); border-radius: var(--radius-sm); border: 1px solid var(--border-subtle);">
-                        <div class="form-row" style="display: flex; gap: 10px;">
-                            <div class="form-group" style="flex: 1; margin-bottom: 0;">
-                                <label for="llm-custom-url" style="font-size: 0.75rem;">Endpoint / URL Base</label>
-                                <input type="text" id="llm-custom-url" class="form-control form-control-sm" placeholder="Ex: http://localhost:11434/v1">
-                            </div>
-                            <div class="form-group" style="flex: 1; margin-bottom: 0;">
-                                <label for="llm-custom-model" style="font-size: 0.75rem;">Modelo</label>
-                                <input type="text" id="llm-custom-model" class="form-control form-control-sm" placeholder="Ex: llama3.2, mistral ou deepseek">
-                            </div>
-                        </div>
-                    </div>
-                    <div class="llm-buttons-bar">
-                        <button type="button" class="btn btn-sm btn-outline llm-action-btn" data-action="summary">
-                            <span data-icon="fileText" data-icon-class="ui-icon ui-icon-sm"></span>
-                            <span>Resumo Executivo</span>
-                        </button>
-                        <button type="button" class="btn btn-sm btn-outline llm-action-btn" data-action="action_items">
-                            <span data-icon="check" data-icon-class="ui-icon ui-icon-sm"></span>
-                            <span>Ata & Próximos Passos</span>
-                        </button>
-                        <button type="button" class="btn btn-sm btn-outline llm-action-btn" data-action="bullet_points">
-                            <span data-icon="layers" data-icon-class="ui-icon ui-icon-sm"></span>
-                            <span>Pontos Principais</span>
-                        </button>
-                        <div class="llm-translate-inline">
-                            <button type="button" class="btn btn-sm btn-outline llm-action-btn" data-action="translate">
-                                <span data-icon="globe" data-icon-class="ui-icon ui-icon-sm"></span>
-                                <span>Traduzir</span>
-                            </button>
-                            <select id="llm-target-lang" class="form-control form-control-sm">
-                                <option value="pt" selected>Português</option>
-                                <option value="en">Inglês</option>
-                                <option value="es">Espanhol</option>
-                                <option value="fr">Francês</option>
-                                <option value="de">Alemão</option>
-                                <option value="ja">Japonês</option>
-                                <option value="zh">Chinês</option>
-                            </select>
-                        </div>
-                    </div>
-                    <div id="llm-output-box" class="llm-output-box hidden">
-                        <div class="llm-output-header">
-                            <span class="llm-output-title" id="llm-output-title">Resultado</span>
-                            <div class="llm-output-tools">
-                                <button type="button" class="btn-text btn-sm" id="copy-llm-btn" title="Copiar">
-                                    <span data-icon="copy" data-icon-class="ui-icon ui-icon-sm"></span> Copiar
-                                </button>
-                                <button type="button" class="btn-text btn-sm" id="close-llm-btn" title="Fechar">
-                                    <span data-icon="x" data-icon-class="ui-icon ui-icon-sm"></span>
-                                </button>
-                            </div>
-                        </div>
-                        <div id="llm-output-content" class="llm-output-content"></div>
+                    <div id="file-queue-list" class="queue-list empty">
+                        <p class="empty-msg">Nenhum arquivo adicionado ainda.</p>
                     </div>
                 </div>
             </section>
@@ -620,103 +635,139 @@
         </div>
     </div>
 
-    <!-- Modal de Gerenciamento de Conexões Personalizadas (OpenAI-compatível) -->
+    <!-- Modal Central de Conexões e Modelos de IA -->
     <div id="modal-custom-providers" class="modal-overlay hidden">
         <div class="modal-card modal-providers">
             <div class="modal-header">
                 <div class="modal-title-flex">
-                    <span data-icon="cpu" data-icon-class="ui-icon"></span>
-                    <h3>Gerenciar Conexões de IA & Modelos</h3>
+                    <span data-icon="settings" data-icon-class="ui-icon"></span>
+                    <h3>Central de Conexões & Modelos de IA</h3>
                 </div>
-                <button type="button" class="btn-close" id="btn-close-providers-modal">
+                <button type="button" class="btn-close" id="btn-close-providers-modal" title="Fechar">
                     <span data-icon="x" data-icon-class="ui-icon"></span>
                 </button>
             </div>
             <div class="modal-body">
-                <p class="modal-subtitle">Conecte seus próprios servidores e endpoints compatíveis com OpenAI (Ollama, vLLM, OpenRouter, LocalAI ou proxies).</p>
-
-                <!-- Lista de Conexões Existentes -->
-                <div class="providers-section-header">
-                    <span>Conexões Ativas</span>
-                    <span id="custom-providers-count" class="badge-counter">2</span>
-                </div>
-                <div id="custom-providers-list" class="custom-providers-list">
-                    <div class="custom-provider-item" data-id="custom_ollama_local">
-                        <div class="custom-prov-info">
-                            <div class="custom-prov-title">
-                                <strong>Ollama Local (11434)</strong>
-                                <span class="custom-prov-badge" style="background: rgba(99,102,241,0.2); color: #818cf8;">Whisper + IA</span>
-                                <span style="font-size: 0.7rem; color: var(--text-dim);">🔓 Sem chave (local)</span>
-                            </div>
-                            <div class="custom-prov-sub">
-                                <span>🌐 http://localhost:11434/v1</span> • <span>📦 whisper-large-v3</span>
-                            </div>
-                        </div>
-                        <div class="custom-prov-actions">
-                            <button type="button" class="btn-icon-danger btn-delete-custom-prov" data-id="custom_ollama_local" title="Excluir conexão">
-                                <span data-icon="trash" data-icon-class="ui-icon ui-icon-sm"></span>
-                            </button>
-                        </div>
-                    </div>
-                    <div class="custom-provider-item" data-id="custom_openrouter_deepseek">
-                        <div class="custom-prov-info">
-                            <div class="custom-prov-title">
-                                <strong>OpenRouter (DeepSeek)</strong>
-                                <span class="custom-prov-badge" style="background: rgba(245,158,11,0.2); color: #fbbf24;">Apenas IA / LLM</span>
-                                <span style="font-size: 0.7rem; color: var(--text-dim); background: rgba(255,255,255,0.05); padding: 1px 5px; border-radius: 3px;">🔑 Com chave</span>
-                            </div>
-                            <div class="custom-prov-sub">
-                                <span>🌐 https://openrouter.ai/api/v1</span> • <span>📦 deepseek/deepseek-chat</span>
-                            </div>
-                        </div>
-                        <div class="custom-prov-actions">
-                            <button type="button" class="btn-icon-danger btn-delete-custom-prov" data-id="custom_openrouter_deepseek" title="Excluir conexão">
-                                <span data-icon="trash" data-icon-class="ui-icon ui-icon-sm"></span>
-                            </button>
-                        </div>
-                    </div>
+                <div class="modal-tabs">
+                    <button type="button" class="modal-tab-btn active" id="tab-modal-cloud">
+                        <span data-icon="cloud" data-icon-class="ui-icon ui-icon-sm"></span>
+                        <span>Provedores Oficiais (Chaves)</span>
+                    </button>
+                    <button type="button" class="modal-tab-btn" id="tab-modal-custom">
+                        <span data-icon="server" data-icon-class="ui-icon ui-icon-sm"></span>
+                        <span>Servidores Customizados (Ollama / APIs)</span>
+                    </button>
                 </div>
 
-                <!-- Formulário para Nova Conexão -->
-                <div class="providers-section-header" style="margin-top: 22px;">
-                    <span>+ Adicionar Nova Conexão</span>
-                </div>
-                <form id="form-new-custom-provider" class="custom-provider-form" onsubmit="return false;">
-                    <div class="form-row">
-                        <div class="form-group" style="flex: 1.2;">
-                            <label for="new-prov-name">Nome Amigável</label>
-                            <input type="text" id="new-prov-name" class="form-control" placeholder="Ex: Meu Ollama Local, OpenRouter" required>
+                <!-- Aba 1: Chaves Oficiais de Nuvem (Groq, OpenAI, Gemini) -->
+                <div id="modal-view-cloud" class="modal-tab-content">
+                    <p class="modal-subtitle">Configure as chaves de API para os provedores em nuvem. As chaves são armazenadas localmente no seu navegador de forma privada.</p>
+                    
+                    <div class="cloud-provider-card">
+                        <div class="cloud-card-header">
+                            <div class="cloud-card-title">
+                                <strong>Groq Cloud</strong>
+                                <span class="badge-subtle">Whisper-large-v3 • Llama 3.3 70B</span>
+                            </div>
+                            <a href="https://console.groq.com/keys" target="_blank" class="external-link">
+                                Obter chave <span data-icon="link" data-icon-class="ui-icon ui-icon-sm"></span>
+                            </a>
                         </div>
-                        <div class="form-group" style="flex: 1.8;">
-                            <label for="new-prov-url">URL Base / Endpoint (OpenAI-compatível)</label>
-                            <input type="text" id="new-prov-url" class="form-control" placeholder="Ex: http://localhost:11434/v1 ou https://openrouter.ai/api/v1" required>
-                        </div>
-                    </div>
-                    <div class="form-row">
-                        <div class="form-group" style="flex: 1.2;">
-                            <label for="new-prov-model">Nome do Modelo</label>
-                            <input type="text" id="new-prov-model" class="form-control" placeholder="Ex: whisper-large-v3, deepseek-chat, llama3.3" required>
-                        </div>
-                        <div class="form-group" style="flex: 1.8;">
-                            <label for="new-prov-key">Chave de API (Opcional se local)</label>
-                            <input type="password" id="new-prov-key" class="form-control" placeholder="sk-... (deixe vazio se for servidor local)">
-                        </div>
-                    </div>
-                    <div class="form-row custom-prov-bottom-row">
                         <div class="form-group" style="margin-bottom: 0;">
-                            <label for="new-prov-type" style="margin-bottom: 4px;">Finalidade</label>
-                            <select id="new-prov-type" class="form-control form-control-sm" style="width: auto;">
-                                <option value="all" selected>Transcrição (Whisper) + Ações IA (LLM)</option>
-                                <option value="transcribe">Apenas Transcrição de Áudio (Whisper)</option>
-                                <option value="llm">Apenas Ações de IA (Resumos/Atas)</option>
-                            </select>
+                            <input type="password" id="modal-key-groq" class="form-control" placeholder="gsk_...">
                         </div>
-                        <button type="submit" id="btn-save-custom-provider" class="btn btn-primary" style="margin-top: 18px;">
-                            <span data-icon="check" data-icon-class="ui-icon ui-icon-sm"></span>
-                            <span>Salvar Conexão</span>
+                    </div>
+
+                    <div class="cloud-provider-card" style="margin-top: 10px;">
+                        <div class="cloud-card-header">
+                            <div class="cloud-card-title">
+                                <strong>OpenAI</strong>
+                                <span class="badge-subtle">Whisper-1 • GPT-4o-mini</span>
+                            </div>
+                            <a href="https://platform.openai.com/api-keys" target="_blank" class="external-link">
+                                Obter chave <span data-icon="link" data-icon-class="ui-icon ui-icon-sm"></span>
+                            </a>
+                        </div>
+                        <div class="form-group" style="margin-bottom: 0;">
+                            <input type="password" id="modal-key-openai" class="form-control" placeholder="sk-...">
+                        </div>
+                    </div>
+
+                    <div class="cloud-provider-card" style="margin-top: 10px;">
+                        <div class="cloud-card-header">
+                            <div class="cloud-card-title">
+                                <strong>Google Gemini</strong>
+                                <span class="badge-subtle">Gemini 2.5 Flash</span>
+                            </div>
+                            <a href="https://aistudio.google.com/app/apikey" target="_blank" class="external-link">
+                                Obter chave <span data-icon="link" data-icon-class="ui-icon ui-icon-sm"></span>
+                            </a>
+                        </div>
+                        <div class="form-group" style="margin-bottom: 0;">
+                            <input type="password" id="modal-key-gemini" class="form-control" placeholder="AIzaSy...">
+                        </div>
+                    </div>
+
+                    <div style="display: flex; justify-content: flex-end; margin-top: 16px;">
+                        <button type="button" id="btn-save-cloud-keys" class="btn btn-primary">
+                            <span data-icon="save" data-icon-class="ui-icon ui-icon-sm"></span>
+                            <span>Salvar Chaves</span>
                         </button>
                     </div>
-                </form>
+                </div>
+
+                <!-- Aba 2: Servidores Customizados -->
+                <div id="modal-view-custom" class="modal-tab-content hidden">
+                    <p class="modal-subtitle">Conecte instâncias do Ollama, LM Studio, OpenRouter, vLLM ou qualquer endpoint compatível com a API da OpenAI.</p>
+
+                    <!-- Lista de Conexões Existentes -->
+                    <div class="providers-section-header">
+                        <span>Servidores Configurados</span>
+                        <span id="custom-providers-count" class="badge-counter">0</span>
+                    </div>
+                    <div id="custom-providers-list" class="custom-providers-list"></div>
+
+                    <!-- Formulário para Nova Conexão -->
+                    <div class="providers-section-header" style="margin-top: 18px;">
+                        <span>Adicionar Nova Conexão</span>
+                    </div>
+                    <form id="form-new-custom-provider" class="custom-provider-form" onsubmit="return false;">
+                        <div class="form-row">
+                            <div class="form-group" style="flex: 1.2;">
+                                <label for="new-prov-name">Nome Amigável</label>
+                                <input type="text" id="new-prov-name" class="form-control" placeholder="Ex: Ollama Local, OpenRouter" required>
+                            </div>
+                            <div class="form-group" style="flex: 1.8;">
+                                <label for="new-prov-url">URL Base / Endpoint (OpenAI-compatível)</label>
+                                <input type="text" id="new-prov-url" class="form-control" placeholder="Ex: http://localhost:11434/v1 ou https://openrouter.ai/api/v1" required>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group" style="flex: 1.2;">
+                                <label for="new-prov-model">Nome do Modelo</label>
+                                <input type="text" id="new-prov-model" class="form-control" placeholder="Ex: whisper-large-v3, llama3.2, deepseek-chat" required>
+                            </div>
+                            <div class="form-group" style="flex: 1.8;">
+                                <label for="new-prov-key">Chave de API (Opcional)</label>
+                                <input type="password" id="new-prov-key" class="form-control" placeholder="sk-... (opcional se local)">
+                            </div>
+                        </div>
+                        <div class="form-row custom-prov-bottom-row">
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label for="new-prov-type" style="margin-bottom: 4px;">Finalidade</label>
+                                <select id="new-prov-type" class="form-control form-control-sm" style="width: auto;">
+                                    <option value="all" selected>Transcrição (Whisper) + Ações IA (LLM)</option>
+                                    <option value="transcribe">Apenas Transcrição de Áudio (Whisper)</option>
+                                    <option value="llm">Apenas Ações de IA (Resumos/Atas)</option>
+                                </select>
+                            </div>
+                            <button type="submit" id="btn-save-custom-provider" class="btn btn-primary" style="margin-top: 18px;">
+                                <span data-icon="plus" data-icon-class="ui-icon ui-icon-sm"></span>
+                                <span>Adicionar Conexão</span>
+                            </button>
+                        </div>
+                    </form>
+                </div>
             </div>
         </div>
     </div>

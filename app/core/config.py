@@ -138,28 +138,28 @@ LOCAL_WHISPER_MODELS = [
 CLOUD_PROVIDERS = [
     {
         "id": "groq",
-        "name": "Groq (Whisper-large-v3 ultra-rápido)",
+        "name": "Groq Cloud",
         "models": ["whisper-large-v3", "whisper-large-v3-turbo", "distil-whisper-large-v3-en"],
         "default_model": "whisper-large-v3-turbo",
         "doc_url": "https://console.groq.com/keys"
     },
     {
         "id": "openai",
-        "name": "OpenAI (Whisper-1 oficial)",
+        "name": "OpenAI",
         "models": ["whisper-1"],
         "default_model": "whisper-1",
         "doc_url": "https://platform.openai.com/api-keys"
     },
     {
         "id": "gemini",
-        "name": "Google Gemini (Gemini 2.5 Flash / 1.5 Flash)",
+        "name": "Google Gemini",
         "models": ["gemini-2.5-flash", "gemini-1.5-flash"],
         "default_model": "gemini-2.5-flash",
         "doc_url": "https://aistudio.google.com/app/apikey"
     },
     {
         "id": "custom",
-        "name": "Personalizado / Compatível com OpenAI (Ollama, vLLM, OpenRouter, etc.)",
+        "name": "Servidor Personalizado (OpenAI-Compatível)",
         "models": ["whisper-1", "whisper-large-v3", "custom"],
         "default_model": "whisper-1",
         "doc_url": ""

@@ -108,13 +108,18 @@ def health_check():
 async def favicon():
     return Response(status_code=204)
 
+# Cache de capacidades de hardware na inicialização
+try:
+    _CUDA_AVAILABLE_CACHE = ctranslate2.get_cuda_device_count() > 0
+except Exception:
+    _CUDA_AVAILABLE_CACHE = False
+
 @app.get("/api/info")
 def get_system_info():
-    """Retorna capacidades de hardware, provedores disponíveis e limites da instância."""
-    cuda_available = ctranslate2.get_cuda_device_count() > 0
+    """Retorna capacidades de hardware, provedores disponíveis e limites da instância de forma instantânea."""
     return {
-        "cuda_available": cuda_available,
-        "device_recommended": "cuda" if cuda_available else "cpu",
+        "cuda_available": _CUDA_AVAILABLE_CACHE,
+        "device_recommended": "cuda" if _CUDA_AVAILABLE_CACHE else "cpu",
         "local_engines": LOCAL_ENGINES,
         "local_models": LOCAL_WHISPER_MODELS,
         "cloud_providers": CLOUD_PROVIDERS,
