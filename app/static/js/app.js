@@ -274,6 +274,63 @@ document.addEventListener("DOMContentLoaded", () => {
             await openRemoteModal();
         }
 
+        const focusMode = params.get("focus");
+        if (focusMode) {
+            document.body.classList.add(`focus-${focusMode}`);
+            
+            if (focusMode === "motores") {
+                const badge = document.createElement("div");
+                badge.className = "focus-card-badge";
+                badge.innerHTML = `${AppIcons.get("zap", "ui-icon")} 100% Local • CPU & GPU • Sem Dependência de Nuvem`;
+                const panel = document.querySelector(".control-panel");
+                if (panel) panel.appendChild(badge);
+            } else if (focusMode === "url") {
+                const tabUrl = document.getElementById("tab-dropzone-url");
+                if (tabUrl) tabUrl.click();
+                const urlInput = document.getElementById("web-url-input");
+                if (urlInput) urlInput.value = "https://www.youtube.com/watch?v=dQw4w9WgXcQ";
+
+                state.files = [{
+                    id: "url_demo_item",
+                    filename: "Rick Astley - Never Gonna Give You Up (Official Music Video).mp3",
+                    status: "processing",
+                    result: null,
+                    error: null,
+                    duration: 213,
+                    source: "url"
+                }];
+                renderQueue();
+
+                const badge = document.createElement("div");
+                badge.className = "focus-card-badge";
+                badge.innerHTML = `${AppIcons.get("link", "ui-icon")} Cole o link do YouTube • Download & Transcrição Automática com Proteção Anti-SSRF`;
+                const mainGrid = document.querySelector(".main-grid");
+                if (mainGrid) mainGrid.after(badge);
+            } else if (focusMode === "player") {
+                const badge = document.createElement("div");
+                badge.className = "focus-card-badge";
+                badge.innerHTML = `${AppIcons.get("play", "ui-icon")} Player Sincronizado • Timestamps Clicáveis • Edição de Texto Inline`;
+                const resPanel = document.querySelector(".results-panel");
+                if (resPanel) resPanel.appendChild(badge);
+            } else if (focusMode === "ai") {
+                const llmCard = document.getElementById("llm-actions-card");
+                if (llmCard) llmCard.classList.remove("hidden");
+                const outBox = document.getElementById("llm-output-box");
+                const outTitle = document.getElementById("llm-output-title");
+                const outContent = document.getElementById("llm-output-content");
+                if (outBox && outContent) {
+                    outBox.classList.remove("hidden");
+                    if (outTitle) outTitle.innerHTML = `<span data-icon="fileText" data-icon-class="ui-icon ui-icon-sm"></span> Resumo Executivo (Groq / Llama-3.3-70B)`;
+                    outContent.innerHTML = `<strong>Visão Geral do Episódio:</strong>\n• <strong>Arquitetura Local:</strong> Apresentação do faster-whisper com quantização int8, alcançando processamento 4x mais rápido na CPU com consumo mínimo de RAM.\n• <strong>Privacidade & Segurança:</strong> Transcrição e arquivos persistidos 100% no disco local, sem dependência de nuvem ou vazamento de dados.\n• <strong>Novos Recursos:</strong> Demonstração de sincronização por palavra (Karaoke), edição inline e ingestão direta de links do YouTube com proteção anti-SSRF.\n\n<strong>Ações & Próximos Passos:</strong>\n1. Validar suporte para novos idiomas e romanização fonética automática.\n2. Expandir exportações para contêineres MP4 com legendas embutidas.`;
+                }
+                const badge = document.createElement("div");
+                badge.className = "focus-card-badge";
+                badge.innerHTML = `${AppIcons.get("zap", "ui-icon")} Ações Inteligentes: Resumo Executivo, Ata de Reunião e Tradução via Groq / Gemini / OpenAI`;
+                const resPanel = document.querySelector(".results-panel");
+                if (resPanel) resPanel.appendChild(badge);
+            }
+        }
+
         if (window.AppIcons) window.AppIcons.renderAll();
     }
 

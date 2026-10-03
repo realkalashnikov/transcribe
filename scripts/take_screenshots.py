@@ -3,6 +3,8 @@ import sys
 import time
 import subprocess
 import json
+import tempfile
+import shutil
 from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -12,6 +14,23 @@ SCREENSHOTS_DIR.mkdir(parents=True, exist_ok=True)
 EDGE_PATH = r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe"
 if not os.path.exists(EDGE_PATH):
     EDGE_PATH = r"C:\Program Files\Microsoft\Edge\Application\msedge.exe"
+
+def capture_edge(url: str, output_path: Path, width: int, height: int, scale: float, profile_dir: str):
+    cmd = [
+        EDGE_PATH,
+        "--headless",
+        "--disable-gpu",
+        "--no-first-run",
+        "--no-default-browser-check",
+        "--hide-scrollbars",
+        f"--user-data-dir={profile_dir}",
+        "--disk-cache-size=0",
+        f"--window-size={width},{height}",
+        f"--force-device-scale-factor={scale}",
+        f"--screenshot={str(output_path)}",
+        url
+    ]
+    subprocess.run(cmd, check=True)
 
 def seed_demo_history():
     import wave
@@ -113,6 +132,8 @@ def main():
 
     time.sleep(2.5) # Aguarda inicialização
 
+    temp_profile = tempfile.mkdtemp(prefix="edge_profile_")
+
     try:
         preview_png = SCREENSHOTS_DIR / "preview.png"
         transcription_png = SCREENSHOTS_DIR / "transcription_view.png"
@@ -122,88 +143,55 @@ def main():
         
         # 1. 16:9 Feed Format - Preview limpo da UI completa
         print(f"[3/7] Capturando preview em {preview_png} (Feed 1600x1300)...")
-        edge_cmd1 = [
-            EDGE_PATH,
-            "--headless",
-            "--disable-gpu",
-            "--no-first-run",
-            "--no-default-browser-check",
-            "--hide-scrollbars",
-            "--window-size=1600,1300",
-            "--force-device-scale-factor=1.15",
-            f"--screenshot={str(preview_png)}",
-            "http://127.0.0.1:8008"
-        ]
-        subprocess.run(edge_cmd1, check=True)
+        capture_edge("http://127.0.0.1:8008", preview_png, 1600, 1300, 1.15, temp_profile)
         print(" -> preview.png capturado!")
 
         # 1.5 Aba de Ingestão por Link da Web
         url_png = SCREENSHOTS_DIR / "url_ingestion.png"
         print(f"[*] Capturando aba de ingestão por URL em {url_png}...")
-        edge_cmd_url = [
-            EDGE_PATH,
-            "--headless",
-            "--disable-gpu",
-            "--no-first-run",
-            "--no-default-browser-check",
-            "--hide-scrollbars",
-            "--window-size=1600,1200",
-            "--force-device-scale-factor=1.15",
-            f"--screenshot={str(url_png)}",
-            "http://127.0.0.1:8008/?tab=url"
-        ]
-        subprocess.run(edge_cmd_url, check=True)
+        capture_edge("http://127.0.0.1:8008/?tab=url", url_png, 1600, 1200, 1.15, temp_profile)
         print(" -> url_ingestion.png capturado!")
 
         # 2. Feed Format com Transcrição ativa e Player de Áudio
         print(f"[4/7] Capturando transcrição ativa em {transcription_png} (Feed 1600x1200)...")
-        edge_cmd2 = [
-            EDGE_PATH,
-            "--headless",
-            "--disable-gpu",
-            "--no-first-run",
-            "--no-default-browser-check",
-            "--hide-scrollbars",
-            "--window-size=1600,1200",
-            "--force-device-scale-factor=1.15",
-            f"--screenshot={str(transcription_png)}",
-            "http://127.0.0.1:8008/?demo=1"
-        ]
-        subprocess.run(edge_cmd2, check=True)
+        capture_edge("http://127.0.0.1:8008/?demo=1", transcription_png, 1600, 1200, 1.15, temp_profile)
         print(" -> transcription_view.png capturado!")
 
         # 3. Feed Format com Modal de Acesso Remoto & QR Code Interativo
         print(f"[5/7] Capturando modal de acesso remoto em {remote_png} (Feed 1600x1200)...")
-        edge_cmd_remote = [
-            EDGE_PATH,
-            "--headless",
-            "--disable-gpu",
-            "--no-first-run",
-            "--no-default-browser-check",
-            "--hide-scrollbars",
-            "--window-size=1600,1200",
-            "--force-device-scale-factor=1.15",
-            f"--screenshot={str(remote_png)}",
-            "http://127.0.0.1:8008/?demo=1&remote=1"
-        ]
-        subprocess.run(edge_cmd_remote, check=True)
+        capture_edge("http://127.0.0.1:8008/?demo=1&remote=1", remote_png, 1600, 1200, 1.15, temp_profile)
         print(" -> remote_modal.png capturado!")
+
+        # ========================================================
+        # PRINTS DEDICADOS DE ALTA DEFINIÇÃO PARA O LINKEDIN
+        # ========================================================
+        linkedin_dir = SCREENSHOTS_DIR / "linkedin"
+        linkedin_dir.mkdir(parents=True, exist_ok=True)
+        print("\n[+] Gerando pacote de prints em alta resolução dedicados para o LinkedIn...")
+
+        # LinkedIn 1: Seleção de Motores & Modelos (Local vs Nuvem)
+        print(" -> Gerando 1_motores_e_modelos.png...")
+        capture_edge("http://127.0.0.1:8008/?focus=motores", linkedin_dir / "1_motores_e_modelos.png", 1000, 1050, 1.6, temp_profile)
+
+        # LinkedIn 2: Ingestão por Link da Web / YouTube + Fila Ativa
+        print(" -> Gerando 2_transcricao_por_url.png...")
+        capture_edge("http://127.0.0.1:8008/?focus=url", linkedin_dir / "2_transcricao_por_url.png", 1150, 900, 1.6, temp_profile)
+
+        # LinkedIn 3: Player Integrado, Timestamps Clicáveis e Edição Inline
+        print(" -> Gerando 3_player_e_minutagem.png...")
+        capture_edge("http://127.0.0.1:8008/?focus=player&demo=1", linkedin_dir / "3_player_e_minutagem.png", 1100, 1100, 1.55, temp_profile)
+
+        # LinkedIn 4: Ações com IA (Resumo Executivo, Ata de Reunião com Llama/Gemini)
+        print(" -> Gerando 4_acoes_ia_resumo.png...")
+        capture_edge("http://127.0.0.1:8008/?focus=ai&demo=1", linkedin_dir / "4_acoes_ia_resumo.png", 1100, 950, 1.55, temp_profile)
+
+        # LinkedIn 5: Visão Geral em Alta Resolução
+        print(" -> Gerando 5_visao_geral.png...")
+        capture_edge("http://127.0.0.1:8008/?demo=1", linkedin_dir / "5_visao_geral.png", 1500, 1100, 1.35, temp_profile)
 
         # 4. 9:16 Vertical Format para WhatsApp Status, Instagram Stories e Facebook Stories
         print(f"[6/7] Capturando formato vertical Story/Status em {story_png} (9:16 vertical)...")
-        edge_cmd3 = [
-            EDGE_PATH,
-            "--headless",
-            "--disable-gpu",
-            "--no-first-run",
-            "--no-default-browser-check",
-            "--hide-scrollbars",
-            "--window-size=720,1280",
-            "--force-device-scale-factor=1.5",
-            f"--screenshot={str(story_png)}",
-            "http://127.0.0.1:8008/?demo=1&story=1"
-        ]
-        subprocess.run(edge_cmd3, check=True)
+        capture_edge("http://127.0.0.1:8008/?demo=1&story=1", story_png, 720, 1280, 1.5, temp_profile)
         print(" -> story_status.png capturado com sucesso!")
 
         # 5. Captura da Janela do Menu CLI Interativo
@@ -353,19 +341,7 @@ def main():
 </body>
 </html>""", encoding="utf-8")
         
-        edge_cmd_cli = [
-            EDGE_PATH,
-            "--headless",
-            "--disable-gpu",
-            "--no-first-run",
-            "--no-default-browser-check",
-            "--hide-scrollbars",
-            "--window-size=1060,560",
-            "--force-device-scale-factor=1.2",
-            f"--screenshot={str(cli_png)}",
-            f"file:///{str(cli_html).replace('\\\\', '/')}"
-        ]
-        subprocess.run(edge_cmd_cli, check=True)
+        capture_edge(f"file:///{str(cli_html).replace('\\\\', '/')}", cli_png, 1060, 560, 1.2, temp_profile)
         try:
             cli_html.unlink()
         except Exception:
@@ -377,6 +353,10 @@ def main():
         print("[4/4] Encerrando servidor temporário...")
         server_proc.terminate()
         server_proc.wait()
+        try:
+            shutil.rmtree(temp_profile, ignore_errors=True)
+        except Exception:
+            pass
 
     print("\n[SUCESSO] Screenshots geradas com sucesso no Microsoft Edge!")
 

@@ -1663,3 +1663,106 @@ body.story-mode .queue-card {
 .hidden {
     display: none !important;
 }
+
+/* ========================================================
+   LinkedIn Focus Modes (Optimized for High Quality Prints)
+   ======================================================== */
+body.focus-motores .results-column,
+body.focus-motores .control-panel .dropzone-card {
+    display: none !important;
+}
+body.focus-motores .main-grid {
+    grid-template-columns: 1fr !important;
+    max-width: 820px !important;
+    margin: 0 auto !important;
+}
+body.focus-motores .app-container {
+    max-width: 900px !important;
+    padding: 30px !important;
+}
+body.focus-motores .card {
+    padding: 24px 28px !important;
+    margin-bottom: 20px !important;
+}
+body.focus-motores .form-control {
+    font-size: 0.98rem !important;
+    padding: 12px 16px !important;
+}
+body.focus-motores .tab-btn {
+    padding: 14px 18px !important;
+}
+
+body.focus-url .results-panel .transcript-card,
+body.focus-url .results-panel .llm-actions-card {
+    display: none !important;
+}
+body.focus-url .control-panel .card:not(.dropzone-card) {
+    display: none !important;
+}
+body.focus-url .main-grid {
+    grid-template-columns: 1.15fr 0.85fr !important;
+    max-width: 1040px !important;
+    margin: 0 auto !important;
+    gap: 24px !important;
+}
+body.focus-url .app-container {
+    max-width: 1100px !important;
+    padding: 30px !important;
+}
+body.focus-url .dropzone-card,
+body.focus-url .queue-card {
+    min-height: 440px !important;
+}
+
+body.focus-player .control-panel {
+    display: none !important;
+}
+body.focus-player .results-panel .queue-card,
+body.focus-player .results-panel .llm-actions-card {
+    display: none !important;
+}
+body.focus-player .main-grid {
+    grid-template-columns: 1fr !important;
+    max-width: 920px !important;
+    margin: 0 auto !important;
+}
+body.focus-player .app-container {
+    max-width: 980px !important;
+    padding: 30px !important;
+}
+
+body.focus-ai .control-panel {
+    display: none !important;
+}
+body.focus-ai .results-panel .queue-card,
+body.focus-ai .results-panel .transcript-card {
+    display: none !important;
+}
+body.focus-ai .results-panel .llm-actions-card {
+    display: block !important;
+}
+body.focus-ai .main-grid {
+    grid-template-columns: 1fr !important;
+    max-width: 920px !important;
+    margin: 0 auto !important;
+}
+body.focus-ai .app-container {
+    max-width: 980px !important;
+    padding: 30px !important;
+}
+
+.focus-card-badge {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    margin-top: 24px;
+    padding: 14px 22px;
+    border-radius: var(--radius-sm);
+    background: rgba(99, 102, 241, 0.12);
+    border: 1px solid rgba(99, 102, 241, 0.35);
+    color: var(--primary-light);
+    font-size: 1rem;
+    font-weight: 600;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
