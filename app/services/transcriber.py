@@ -40,7 +40,8 @@ class TranscriberService:
         api_key: Optional[str] = None,
         original_filename: Optional[str] = None,
         session_id: Optional[str] = None,
-        base_url: Optional[str] = None
+        base_url: Optional[str] = None,
+        device: Optional[str] = None
     ) -> TranscriptionResult:
         _JOBS[job_id] = {
             "id": job_id,
@@ -66,7 +67,7 @@ class TranscriberService:
                     raise ValueError("Instância em modo BYOK: forneça sua própria chave de API para o provedor selecionado.")
 
             if provider_clean in ["faster-whisper", "local"]:
-                engine = FasterWhisperTranscriber(model_size=model or "base")
+                engine = FasterWhisperTranscriber(model_size=model or "base", device=device)
             elif provider_clean in ["whisper.cpp", "whisper_cpp"]:
                 engine = WhisperCppTranscriber(model_size=model or "base")
             elif provider_clean in ["groq", "openai", "gemini", "custom", "openai_compatible"]:

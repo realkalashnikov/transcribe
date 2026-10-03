@@ -108,18 +108,131 @@ def health_check():
 async def favicon():
     return Response(status_code=204)
 
+def get_hardware_info() -> dict:
+    cpu_name = None
+    cpu_cores = os.cpu_count() or 1
+    ram_gb = None
+    gpu_available = False
+    gpu_name = None
+
+    if sys.platform == "win32":
+        try:
+            import winreg
+            k = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, r"HARDWARE\DESCRIPTION\System\CentralProcessor\0")
+            val, _ = winreg.QueryValueEx(k, "ProcessorNameString")
+            cpu_name = val.strip()
+        except Exception:
+            pass
+
+    if not cpu_name:
+        import platform
+        cpu_name = platform.processor() or "Processador Padrão"
+
+    if sys.platform == "win32":
+        try:
+            import ctypes
+            c_ulonglong = ctypes.c_ulonglong
+            class MEMORYSTATUSEX(ctypes.Structure):
+                _fields_ = [
+                    ("dwLength", ctypes.c_ulong),
+                    ("dwMemoryLoad", ctypes.c_ulong),
+                    ("ullTotalPhys", c_ulonglong),
+                    ("ullAvailPhys", c_ulonglong),
+                    ("ullTotalPageFile", c_ulonglong),
+                    ("ullAvailPageFile", c_ulonglong),
+                    ("ullTotalVirtual", c_ulonglong),
+                    ("ullAvailVirtual", c_ulonglong),
+                    ("ullAvailExtendedVirtual", c_ulonglong),
+                ]
+            stat = MEMORYSTATUSEX()
+            stat.dwLength = ctypes.sizeof(MEMORYSTATUSEX)
+            if ctypes.windll.kernel32.GlobalMemoryStatusEx(ctypes.byref(stat)):
+                ram_gb = round(stat.ullTotalPhys / (1024 ** 3), 1)
+        except Exception:
+            pass
+
+    # Detecção de GPUs instaladas no sistema (AMD Radeon, NVIDIA GeForce, Intel Arc)
+    system_gpus = []
+    if sys.platform == "win32":
+        try:
+            import winreg
+            base_class = r"SYSTEM\CurrentControlSet\Control\Class\{4d36e968-e325-11ce-bfc1-08002be10318}"
+            with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, base_class) as k:
+                for i in range(12):
+                    try:
+                        sub = winreg.EnumKey(k, i)
+                        with winreg.OpenKey(k, sub) as subk:
+                            try:
+                                desc, _ = winreg.QueryValueEx(subk, "DriverDesc")
+                                if desc and not any(ign in desc for ign in ["Basic", "VNC", "Virtual", "Remote"]):
+                                    if desc not in system_gpus:
+                                        system_gpus.append(desc)
+                            except FileNotFoundError:
+                                pass
+                    except OSError:
+                        break
+        except Exception:
+            pass
+
+    # Verifica suporte de aceleração CUDA para NVIDIA
+    try:
+        cuda_count = ctranslate2.get_cuda_device_count()
+        gpu_available = cuda_count > 0
+    except Exception:
+        gpu_available = False
+
+    # Identifica placa primária e fabricante
+    gpu_vendor = None
+    if system_gpus:
+        gpu_name = system_gpus[0]
+        name_lower = gpu_name.lower()
+        if "amd" in name_lower or "radeon" in name_lower:
+            gpu_vendor = "AMD"
+        elif "nvidia" in name_lower or "geforce" in name_lower:
+            gpu_vendor = "NVIDIA"
+        elif "intel" in name_lower or "arc" in name_lower:
+            gpu_vendor = "Intel"
+        else:
+            gpu_vendor = "Outro"
+    elif gpu_available:
+        gpu_name = "NVIDIA GPU (CUDA)"
+        gpu_vendor = "NVIDIA"
+
+    cpu_short = cpu_name.split(" with ")[0].replace("Processor", "").strip() if cpu_name else "CPU"
+    if gpu_vendor == "AMD":
+        execution_notes = f"Placa {gpu_name} detectada. No Windows, a inferência local com faster-whisper é executada na {cpu_short} ({cpu_cores} threads com quantização int8) para máxima compatibilidade e rapidez."
+    elif gpu_available:
+        execution_notes = f"Aceleração por hardware NVIDIA CUDA ativa na placa {gpu_name}."
+    else:
+        execution_notes = f"Inferência otimizada na {cpu_short} via CTranslate2 ({cpu_cores} threads com quantização int8)."
+
+    recommended_device = "cuda" if gpu_available else "cpu"
+    supported_devices = ["cpu", "cuda"] if gpu_available else ["cpu"]
+
+    return {
+        "cpu_name": cpu_name,
+        "cpu_cores": cpu_cores,
+        "ram_gb": ram_gb,
+        "system_gpus": system_gpus,
+        "gpu_name": gpu_name,
+        "gpu_vendor": gpu_vendor,
+        "gpu_available": gpu_available,
+        "recommended_device": recommended_device,
+        "supported_devices": supported_devices,
+        "execution_notes": execution_notes
+    }
+
 # Cache de capacidades de hardware na inicialização
-try:
-    _CUDA_AVAILABLE_CACHE = ctranslate2.get_cuda_device_count() > 0
-except Exception:
-    _CUDA_AVAILABLE_CACHE = False
+_HARDWARE_INFO_CACHE = get_hardware_info()
+_CUDA_AVAILABLE_CACHE = _HARDWARE_INFO_CACHE["gpu_available"]
 
 @app.get("/api/info")
 def get_system_info():
     """Retorna capacidades de hardware, provedores disponíveis e limites da instância de forma instantânea."""
     return {
         "cuda_available": _CUDA_AVAILABLE_CACHE,
-        "device_recommended": "cuda" if _CUDA_AVAILABLE_CACHE else "cpu",
+        "device_recommended": _HARDWARE_INFO_CACHE["recommended_device"],
+        "hardware": _HARDWARE_INFO_CACHE,
         "local_engines": LOCAL_ENGINES,
         "local_models": LOCAL_WHISPER_MODELS,
         "cloud_providers": CLOUD_PROVIDERS,
@@ -174,6 +287,7 @@ async def transcribe_file(
     model: Optional[str] = Form(None),
     language: Optional[str] = Form(None),
     task: str = Form("transcribe"),
+    device: Optional[str] = Form(None),
     api_key: Optional[str] = Form(None),
     base_url: Optional[str] = Form(None),
     x_session_id: Optional[str] = Header(None)
@@ -206,7 +320,8 @@ async def transcribe_file(
             api_key=api_key,
             original_filename=file.filename,
             session_id=session_id,
-            base_url=base_url
+            base_url=base_url,
+            device=device
         )
 
         job_data = TranscriberService.get_job(job_id)
@@ -227,6 +342,7 @@ async def create_transcription_job(
     language: Optional[str] = Form(None),
     task: str = Form("transcribe"),
     prompt: Optional[str] = Form(None),
+    device: Optional[str] = Form(None),
     api_key: Optional[str] = Form(None),
     base_url: Optional[str] = Form(None),
     x_session_id: Optional[str] = Header(None)
@@ -261,7 +377,8 @@ async def create_transcription_job(
         api_key=api_key,
         original_filename=file.filename,
         session_id=session_id,
-        base_url=base_url
+        base_url=base_url,
+        device=device
     )
 
     return {"job_id": job_id, "filename": file.filename, "status": "queued"}

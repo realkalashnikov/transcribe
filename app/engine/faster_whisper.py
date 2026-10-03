@@ -44,11 +44,23 @@ def get_audio_duration(file_path: str) -> float:
     return 0.0
 
 class FasterWhisperTranscriber(BaseTranscriber):
-    def __init__(self, model_size: str = "base"):
+    def __init__(self, model_size: str = "base", device: Optional[str] = None):
         self.model_size = model_size
         self.cuda_available = ctranslate2.get_cuda_device_count() > 0
-        self.device = "cuda" if self.cuda_available else "cpu"
-        self.compute_type = "float16" if self.cuda_available else "int8"
+        dev_req = (device or "auto").lower().strip()
+        if dev_req == "cuda":
+            if not self.cuda_available:
+                self.device = "cpu"
+                self.compute_type = "int8"
+            else:
+                self.device = "cuda"
+                self.compute_type = "float16"
+        elif dev_req == "cpu":
+            self.device = "cpu"
+            self.compute_type = "int8"
+        else:  # auto
+            self.device = "cuda" if self.cuda_available else "cpu"
+            self.compute_type = "float16" if self.cuda_available else "int8"
 
     def _get_model(self) -> WhisperModel:
         cache_key = f"{self.model_size}_{self.device}_{self.compute_type}"
