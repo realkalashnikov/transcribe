@@ -170,6 +170,7 @@ async def transcribe_file(
     language: Optional[str] = Form(None),
     task: str = Form("transcribe"),
     api_key: Optional[str] = Form(None),
+    base_url: Optional[str] = Form(None),
     x_session_id: Optional[str] = Header(None)
 ):
     """Endpoint síncrono para transcrição com validação de quotas e isolamento de sessão."""
@@ -199,7 +200,8 @@ async def transcribe_file(
             task=task,
             api_key=api_key,
             original_filename=file.filename,
-            session_id=session_id
+            session_id=session_id,
+            base_url=base_url
         )
 
         job_data = TranscriberService.get_job(job_id)
@@ -221,6 +223,7 @@ async def create_transcription_job(
     task: str = Form("transcribe"),
     prompt: Optional[str] = Form(None),
     api_key: Optional[str] = Form(None),
+    base_url: Optional[str] = Form(None),
     x_session_id: Optional[str] = Header(None)
 ):
     """Endpoint assíncrono para processamento em background com acompanhamento e quotas."""
@@ -252,7 +255,8 @@ async def create_transcription_job(
         prompt=clean_prompt,
         api_key=api_key,
         original_filename=file.filename,
-        session_id=session_id
+        session_id=session_id,
+        base_url=base_url
     )
 
     return {"job_id": job_id, "filename": file.filename, "status": "queued"}
@@ -370,6 +374,7 @@ class UrlIngestRequest(BaseModel):
     task: str = "transcribe"
     prompt: Optional[str] = None
     api_key: Optional[str] = None
+    base_url: Optional[str] = None
 
 class SummarizeRequest(BaseModel):
     job_id: Optional[str] = None
@@ -379,6 +384,7 @@ class SummarizeRequest(BaseModel):
     provider: Optional[str] = None
     api_key: Optional[str] = None
     model: Optional[str] = None
+    base_url: Optional[str] = None
 
 class HistoryUpdateRequest(BaseModel):
     text: Optional[str] = None
@@ -434,7 +440,8 @@ async def ingest_url(
         prompt=clean_prompt,
         api_key=req.api_key,
         original_filename=clean_title,
-        session_id=session_id
+        session_id=session_id,
+        base_url=req.base_url
     )
 
     return {
@@ -470,7 +477,8 @@ async def summarize_transcript(
             target_language=req.target_language,
             provider=req.provider,
             api_key=req.api_key,
-            model=req.model
+            model=req.model,
+            base_url=req.base_url
         )
         return res
     except ValueError as e:

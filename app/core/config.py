@@ -156,6 +156,13 @@ CLOUD_PROVIDERS = [
         "models": ["gemini-2.5-flash", "gemini-1.5-flash"],
         "default_model": "gemini-2.5-flash",
         "doc_url": "https://aistudio.google.com/app/apikey"
+    },
+    {
+        "id": "custom",
+        "name": "Personalizado / Compatível com OpenAI (Ollama, vLLM, OpenRouter, etc.)",
+        "models": ["whisper-1", "whisper-large-v3", "custom"],
+        "default_model": "whisper-1",
+        "doc_url": ""
     }
 ]
 

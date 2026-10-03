@@ -16,10 +16,11 @@ class CloudTranscriber(BaseTranscriber):
     - Google Gemini (Gemini 2.5 Flash / 1.5 Flash)
     """
 
-    def __init__(self, provider: str, api_key: str, model: Optional[str] = None):
+    def __init__(self, provider: str, api_key: str, model: Optional[str] = None, base_url: Optional[str] = None):
         self.provider = provider.lower()
-        self.api_key = api_key.strip()
+        self.api_key = (api_key or "").strip()
         self.model = model
+        self.base_url = (base_url or "").strip()
 
     def transcribe(
         self,
@@ -30,7 +31,7 @@ class CloudTranscriber(BaseTranscriber):
         progress_callback: Optional[Callable[[float, str], None]] = None,
         **kwargs
     ) -> TranscriptionResult:
-        if not self.api_key:
+        if not self.api_key and self.provider not in ("custom", "openai_compatible"):
             raise ValueError(f"A chave de API para o provedor '{self.provider}' não foi fornecida.")
 
         clean_prompt = (prompt.strip()[:500]) if (prompt and prompt.strip()) else None
@@ -41,8 +42,59 @@ class CloudTranscriber(BaseTranscriber):
             return self._transcribe_openai(file_path, language, clean_prompt, progress_callback)
         elif self.provider == "gemini":
             return self._transcribe_gemini(file_path, language, clean_prompt, progress_callback)
+        elif self.provider in ("custom", "openai_compatible"):
+            return self._transcribe_custom_openai(file_path, language, clean_prompt, progress_callback)
         else:
             raise ValueError(f"Provedor desconhecido: {self.provider}")
+
+    def _transcribe_custom_openai(
+        self,
+        file_path: str,
+        language: Optional[str],
+        prompt: Optional[str],
+        progress_callback: Optional[Callable[[float, str], None]]
+    ) -> TranscriptionResult:
+        if progress_callback:
+            progress_callback(10.0, "Enviando áudio para Endpoint Personalizado...")
+
+        model_name = self.model or "whisper-1"
+        base = self.base_url or "http://localhost:11434/v1"
+        endpoint = f"{base.rstrip('/')}/audio/transcriptions" if not base.endswith("/audio/transcriptions") else base
+        headers = {}
+        if self.api_key:
+            headers["Authorization"] = f"Bearer {self.api_key}"
+
+        filename = os.path.basename(file_path)
+        with open(file_path, "rb") as f:
+            file_bytes = f.read()
+
+        files = {"file": (filename, file_bytes)}
+        data = {
+            "model": model_name,
+            "response_format": "verbose_json"
+        }
+        if language and language.strip().lower() != "auto":
+            data["language"] = language.strip()
+        if prompt:
+            data["prompt"] = prompt
+
+        if progress_callback:
+            progress_callback(40.0, f"Processando transcrição no endpoint ({model_name})...")
+
+        with httpx.Client(timeout=300.0) as client:
+            resp = client.post(endpoint, headers=headers, files=files, data=data)
+
+        if resp.status_code != 200:
+            err_msg = resp.text
+            try:
+                err_data = resp.json()
+                err_msg = err_data.get("error", {}).get("message", err_msg)
+            except Exception:
+                pass
+            raise RuntimeError(f"Erro no provedor personalizado ({resp.status_code}): {err_msg}")
+
+        result_data = resp.json()
+        return self._parse_openai_format_response(result_data, file_path, f"custom-{model_name}", "custom", progress_callback)
 
     def _transcribe_groq(
         self,

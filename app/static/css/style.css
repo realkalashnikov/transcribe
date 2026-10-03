@@ -360,6 +360,60 @@ label {
     box-shadow: 0 0 0 3px var(--primary-glow);
 }
 
+/* Select Menus Modernos e Elegantes */
+select.form-control {
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    cursor: pointer;
+    background-color: #111726;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23818cf8' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 14px center;
+    background-size: 16px 16px;
+    padding-right: 42px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 9px;
+    font-weight: 500;
+    line-height: 1.4;
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+select.form-control:hover {
+    border-color: rgba(129, 140, 248, 0.45);
+    background-color: #151d30;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23a5b4fc' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+}
+
+select.form-control:focus {
+    border-color: #6366f1;
+    background-color: #172036;
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.28), 0 4px 14px rgba(0, 0, 0, 0.3);
+}
+
+select.form-control option {
+    background-color: #0d121f;
+    color: #f1f5f9;
+    padding: 12px 14px;
+    font-size: 0.88rem;
+}
+
+select.form-control option:checked {
+    background-color: #1e293b;
+    color: #818cf8;
+    font-weight: 600;
+}
+
+select.form-control-sm {
+    padding: 6px 30px 6px 12px;
+    background-position: right 10px center;
+    background-size: 13px 13px;
+    font-size: 0.8rem;
+    border-radius: 7px;
+}
+
 .help-text {
     display: block;
     font-size: 0.73rem;
@@ -1584,8 +1638,8 @@ body.story-mode .queue-card {
 }
 
 .llm-header-right select {
-    font-size: 0.78rem;
-    padding: 4px 8px;
+    font-size: 0.8rem;
+    padding: 6px 32px 6px 12px;
     height: auto;
 }
 
@@ -1612,8 +1666,8 @@ body.story-mode .queue-card {
 }
 
 .llm-translate-inline select {
-    font-size: 0.78rem;
-    padding: 4px 8px;
+    font-size: 0.8rem;
+    padding: 6px 28px 6px 10px;
     height: auto;
     width: auto;
 }

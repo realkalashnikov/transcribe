@@ -48,7 +48,8 @@ class LLMActionService:
         target_language: str = "pt",
         provider: Optional[str] = None,
         api_key: Optional[str] = None,
-        model: Optional[str] = None
+        model: Optional[str] = None,
+        base_url: Optional[str] = None
     ) -> Dict[str, Any]:
         if not text or not text.strip():
             raise ValueError("O texto da transcrição está vazio.")
@@ -97,8 +98,46 @@ class LLMActionService:
             return LLMActionService._call_gemini(system_prompt, user_content, key, model)
         elif prov == "ollama":
             return LLMActionService._call_ollama(system_prompt, user_content, model)
+        elif prov in ("custom", "openai_compatible") or (base_url and prov not in ("groq", "gemini")):
+            return LLMActionService._call_custom_openai(system_prompt, user_content, base_url or "http://localhost:11434/v1", key, model)
         else:
             raise ValueError(f"Provedor LLM não suportado: {prov}")
+
+    @staticmethod
+    def _call_custom_openai(system_prompt: str, user_content: str, base_url: str, api_key: Optional[str] = None, model: Optional[str] = None) -> Dict[str, Any]:
+        model_name = model or "llama-3.3-70b-versatile"
+        endpoint = f"{base_url.rstrip('/')}/chat/completions" if not base_url.endswith("/chat/completions") else base_url
+        headers = {"Content-Type": "application/json"}
+        if api_key and api_key.strip():
+            headers["Authorization"] = f"Bearer {api_key.strip()}"
+
+        payload = {
+            "model": model_name,
+            "messages": [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_content}
+            ],
+            "temperature": 0.3
+        }
+
+        with httpx.Client(timeout=120.0) as client:
+            resp = client.post(endpoint, json=payload, headers=headers)
+
+        if resp.status_code != 200:
+            raise RuntimeError(f"Erro no endpoint personalizado ({resp.status_code}): {resp.text}")
+
+        data = resp.json()
+        choices = data.get("choices", [])
+        if not choices:
+            raise RuntimeError("Provedor personalizado não retornou texto na resposta.")
+
+        content = choices[0].get("message", {}).get("content", "").strip()
+        return {
+            "result": content,
+            "provider": "custom",
+            "model": model_name,
+            "usage": data.get("usage", {})
+        }
 
     @staticmethod
     def _call_groq(system_prompt: str, user_content: str, api_key: str, model: Optional[str] = None) -> Dict[str, Any]:

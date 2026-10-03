@@ -39,7 +39,8 @@ class TranscriberService:
         prompt: Optional[str] = None,
         api_key: Optional[str] = None,
         original_filename: Optional[str] = None,
-        session_id: Optional[str] = None
+        session_id: Optional[str] = None,
+        base_url: Optional[str] = None
     ) -> TranscriptionResult:
         _JOBS[job_id] = {
             "id": job_id,
@@ -61,17 +62,17 @@ class TranscriberService:
             if settings.is_byok:
                 if provider_clean in ["faster-whisper", "local", "whisper.cpp", "whisper_cpp"]:
                     raise ValueError("Instância em modo BYOK: motores locais estão desabilitados pelo administrador.")
-                if not api_key:
+                if not api_key and provider_clean not in ["custom", "openai_compatible"]:
                     raise ValueError("Instância em modo BYOK: forneça sua própria chave de API para o provedor selecionado.")
 
             if provider_clean in ["faster-whisper", "local"]:
                 engine = FasterWhisperTranscriber(model_size=model or "base")
             elif provider_clean in ["whisper.cpp", "whisper_cpp"]:
                 engine = WhisperCppTranscriber(model_size=model or "base")
-            elif provider_clean in ["groq", "openai", "gemini"]:
-                if not api_key:
+            elif provider_clean in ["groq", "openai", "gemini", "custom", "openai_compatible"]:
+                if not api_key and provider_clean not in ["custom", "openai_compatible"]:
                     raise ValueError(f"Chave de API obrigatória para o provedor {provider_clean}.")
-                engine = CloudTranscriber(provider=provider_clean, api_key=api_key, model=model)
+                engine = CloudTranscriber(provider=provider_clean, api_key=api_key or "", model=model, base_url=base_url)
             else:
                 raise ValueError(f"Provedor não suportado: {provider_clean}")
 

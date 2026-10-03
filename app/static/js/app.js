@@ -60,7 +60,10 @@ document.addEventListener("DOMContentLoaded", () => {
     const cloudApiKeyInput = document.getElementById("cloud-api-key");
     const apiKeyLink = document.getElementById("api-key-link");
     const audioLanguageSelect = document.getElementById("audio-language");
-    const audioTaskSelect = document.getElementById("audio-task");
+    const cloudCustomModelGroup = document.getElementById("cloud-custom-model-group");
+    const cloudCustomModelInput = document.getElementById("cloud-custom-model");
+    const cloudBaseUrlGroup = document.getElementById("cloud-base-url-group");
+    const cloudBaseUrlInput = document.getElementById("cloud-base-url");
     const initialPromptInput = document.getElementById("initial-prompt");
 
     const dropzone = document.getElementById("dropzone");
@@ -562,11 +565,47 @@ document.addEventListener("DOMContentLoaded", () => {
             updateStartButtonState();
         });
 
+        cloudModelSelect.addEventListener("change", () => {
+            syncCloudCustomInputs();
+        });
+
+        if (cloudBaseUrlInput) {
+            cloudBaseUrlInput.addEventListener("input", () => {
+                localStorage.setItem("transcribe_custom_base_url", cloudBaseUrlInput.value.trim());
+            });
+        }
+
+        if (cloudCustomModelInput) {
+            cloudCustomModelInput.addEventListener("input", () => {
+                localStorage.setItem("transcribe_custom_model", cloudCustomModelInput.value.trim());
+            });
+        }
+
         cloudApiKeyInput.addEventListener("input", () => {
             const provider = cloudProviderSelect.value;
             localStorage.setItem(`transcribe_key_${provider}`, cloudApiKeyInput.value.trim());
             updateStartButtonState();
         });
+    }
+
+    function syncCloudCustomInputs() {
+        const providerId = cloudProviderSelect ? cloudProviderSelect.value : "";
+        const isCustomProvider = providerId === "custom";
+        const isCustomModel = (cloudModelSelect && cloudModelSelect.value === "custom") || isCustomProvider;
+
+        if (cloudBaseUrlGroup) {
+            cloudBaseUrlGroup.style.display = isCustomProvider ? "block" : "none";
+        }
+        if (cloudCustomModelGroup) {
+            cloudCustomModelGroup.style.display = isCustomModel ? "block" : "none";
+        }
+
+        if (isCustomProvider && cloudBaseUrlInput && !cloudBaseUrlInput.value) {
+            cloudBaseUrlInput.value = localStorage.getItem("transcribe_custom_base_url") || "http://localhost:11434/v1";
+        }
+        if (isCustomModel && cloudCustomModelInput && !cloudCustomModelInput.value) {
+            cloudCustomModelInput.value = localStorage.getItem("transcribe_custom_model") || "";
+        }
     }
 
     function updateCloudModels() {
@@ -575,17 +614,31 @@ document.addEventListener("DOMContentLoaded", () => {
         cloudModelSelect.innerHTML = "";
         if (!provider) return;
 
-        if (apiKeyLink && provider.doc_url) {
-            apiKeyLink.href = provider.doc_url;
+        if (apiKeyLink) {
+            if (provider.doc_url) {
+                apiKeyLink.style.display = "inline-flex";
+                apiKeyLink.href = provider.doc_url;
+            } else {
+                apiKeyLink.style.display = "none";
+            }
         }
 
         provider.models.forEach(m => {
             const opt = document.createElement("option");
             opt.value = m;
-            opt.textContent = m;
+            opt.textContent = m === "custom" ? "Personalizado / Outro modelo..." : m;
             if (m === provider.default_model) opt.selected = true;
             cloudModelSelect.appendChild(opt);
         });
+
+        if (!provider.models.includes("custom")) {
+            const customOpt = document.createElement("option");
+            customOpt.value = "custom";
+            customOpt.textContent = "Personalizado / Outro modelo...";
+            cloudModelSelect.appendChild(customOpt);
+        }
+
+        syncCloudCustomInputs();
     }
 
     function loadSavedApiKeys() {
@@ -682,15 +735,21 @@ document.addEventListener("DOMContentLoaded", () => {
                 urlBtn.innerHTML = `<span>Baixando mídia...</span>`;
 
                 try {
-                    const chosenEngine = (state.mode === "local")
-                        ? (localEngineSelect ? localEngineSelect.value : "faster-whisper")
-                        : cloudProviderSelect.value;
-                    const chosenModel = (state.mode === "local")
-                        ? localModelSelect.value
-                        : cloudModelSelect.value;
-                    const apiKey = (state.mode === "cloud")
-                        ? cloudApiKeyInput.value.trim()
-                        : null;
+                    let chosenEngine = "faster-whisper";
+                    let chosenModel = "base";
+                    let apiKey = null;
+                    let baseUrl = null;
+
+                    if (state.mode === "local") {
+                        chosenEngine = localEngineSelect ? localEngineSelect.value : "faster-whisper";
+                        chosenModel = localModelSelect ? localModelSelect.value : "base";
+                    } else {
+                        chosenEngine = cloudProviderSelect.value;
+                        const isCustomModel = cloudModelSelect.value === "custom" || chosenEngine === "custom";
+                        chosenModel = isCustomModel ? (cloudCustomModelInput?.value.trim() || "whisper-1") : cloudModelSelect.value;
+                        apiKey = cloudApiKeyInput.value.trim() || null;
+                        baseUrl = chosenEngine === "custom" ? (cloudBaseUrlInput?.value.trim() || null) : null;
+                    }
 
                     const payload = {
                         url: url,
@@ -699,7 +758,8 @@ document.addEventListener("DOMContentLoaded", () => {
                         language: audioLanguageSelect.value || null,
                         task: audioTaskSelect.value || "transcribe",
                         prompt: initialPromptInput && initialPromptInput.value.trim() ? initialPromptInput.value.trim() : null,
-                        api_key: apiKey
+                        api_key: apiKey,
+                        base_url: baseUrl
                     };
 
                     const resp = await apiRequest("/api/ingest/url", {
@@ -864,6 +924,22 @@ document.addEventListener("DOMContentLoaded", () => {
         const copyLlmBtn = document.getElementById("copy-llm-btn");
         const closeLlmBtn = document.getElementById("close-llm-btn");
 
+        const customSettings = document.getElementById("llm-custom-settings");
+        const customUrlInput = document.getElementById("llm-custom-url");
+        const customModelInput = document.getElementById("llm-custom-model");
+
+        if (providerSel) {
+            providerSel.addEventListener("change", () => {
+                if (customSettings) {
+                    if (providerSel.value === "custom") {
+                        customSettings.classList.remove("hidden");
+                    } else {
+                        customSettings.classList.add("hidden");
+                    }
+                }
+            });
+        }
+
         actionBtns.forEach(btn => {
             btn.addEventListener("click", async () => {
                 if (!state.activeItem || !state.activeItem.result) return;
@@ -873,15 +949,22 @@ document.addEventListener("DOMContentLoaded", () => {
                 const apiKey = (cloudApiKeyInput && cloudApiKeyInput.value.trim()) || localStorage.getItem(`transcribe_key_${provider}`) || "";
 
                 const actionTitles = {
-                    summary: "📝 Resumo Executivo",
-                    action_items: "📋 Ata de Reunião & Próximos Passos",
-                    bullet_points: "🎯 Pontos Principais",
-                    translate: `🌐 Tradução para ${targetLang.toUpperCase()}`
+                    summary: "Resumo Executivo",
+                    action_items: "Ata de Reunião & Próximos Passos",
+                    bullet_points: "Pontos Principais",
+                    translate: `Tradução para ${targetLang.toUpperCase()}`
                 };
 
                 if (outputBox) outputBox.classList.remove("hidden");
                 if (outputTitle) outputTitle.textContent = actionTitles[action] || "Processando com IA...";
                 if (outputContent) outputContent.innerHTML = `<span style="color: var(--text-dim);">Aguarde... conectando ao provedor ${provider.toUpperCase()}</span>`;
+
+                let customUrl = null;
+                let customModel = null;
+                if (provider === "custom") {
+                    customUrl = customUrlInput ? customUrlInput.value.trim() : null;
+                    customModel = customModelInput ? customModelInput.value.trim() : null;
+                }
 
                 try {
                     const resp = await apiRequest("/api/summarize", {
@@ -893,7 +976,9 @@ document.addEventListener("DOMContentLoaded", () => {
                             action: action,
                             target_language: targetLang,
                             provider: provider,
-                            api_key: apiKey
+                            api_key: apiKey,
+                            base_url: customUrl,
+                            model: customModel
                         })
                     });
 
@@ -1530,9 +1615,15 @@ document.addEventListener("DOMContentLoaded", () => {
             formData.append("provider", chosenEngine);
             formData.append("model", localModelSelect.value);
         } else {
-            formData.append("provider", cloudProviderSelect.value);
-            formData.append("model", cloudModelSelect.value);
+            const prov = cloudProviderSelect.value;
+            const isCustomModel = cloudModelSelect.value === "custom" || prov === "custom";
+            const modelVal = isCustomModel ? (cloudCustomModelInput?.value.trim() || "whisper-1") : cloudModelSelect.value;
+            formData.append("provider", prov);
+            formData.append("model", modelVal);
             formData.append("api_key", cloudApiKeyInput.value.trim());
+            if (prov === "custom" && cloudBaseUrlInput && cloudBaseUrlInput.value.trim()) {
+                formData.append("base_url", cloudBaseUrlInput.value.trim());
+            }
         }
 
         formData.append("language", audioLanguageSelect.value);
