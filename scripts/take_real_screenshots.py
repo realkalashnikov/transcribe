@@ -1,4 +1,4 @@
-"""Gera prints reais do app clicando em cada aba/modal com um navegador de verdade (Playwright + Edge)."""
+﻿"""Gera prints reais do app clicando em cada aba/modal com um navegador de verdade (Playwright + Edge)."""
 import subprocess
 import sys
 import time
@@ -54,15 +54,15 @@ def main():
             page.click("#tab-cloud"); focus("#settings-card", "1b_motores_nuvem.png")
 
             page.click("#btn-open-custom-providers-llm")
-            page.click("#tab-modal-custom"); shot("1c_gerenciador_conexoes.png")
+            page.click("#tab-modal-custom"); focus("#modal-custom-providers .modal-card", "1c_gerenciador_conexoes.png", 45)
             page.click("#tab-modal-cloud")
             page.fill("#modal-key-groq", "gsk_live_94F2k9x" + "•" * 20)
             page.fill("#modal-key-openai", "sk-proj-7a8K9x" + "•" * 20)
             page.fill("#modal-key-gemini", "AIzaSyD-" + "•" * 24)
-            shot("1c_chaves_api_nuvem.png"); close_modals()
+            focus("#modal-custom-providers .modal-card", "1c_chaves_api_nuvem.png", 45); close_modals()
 
             page.click("#tab-local")
-            page.click("#hardware-badge"); shot("1d_diagnostico_hardware.png"); close_modals()
+            page.click("#hardware-badge"); focus("#modal-hardware-details .modal-card", "1d_diagnostico_hardware.png", 45); close_modals()
 
             page.click("#tab-dropzone-url")
             page.fill("#web-url-input", "https://www.youtube.com/watch?v=dQw4w9WgXcQ")
@@ -73,7 +73,7 @@ def main():
             focus("#llm-actions-card", "4_acoes_ia_resumo.png")
 
             page.click("#remote-btn"); page.wait_for_timeout(800)
-            page.click("#tab-remote-lan"); shot("5_acesso_remoto_qrcode.png"); close_modals()
+            page.click("#tab-remote-lan"); focus("#remote-modal .modal-card", "5_acesso_remoto_qrcode.png", 45); close_modals()
 
             shot("6_visao_geral.png")
             (OUT / "5_visao_geral.png").write_bytes((OUT / "6_visao_geral.png").read_bytes())
@@ -84,3 +84,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+

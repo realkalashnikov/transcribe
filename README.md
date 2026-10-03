@@ -1,4 +1,4 @@
-<div align="center">
+﻿<div align="center">
 
 # 🎙️ Transcribe Studio
 
@@ -15,7 +15,7 @@
 
 <br>
 
-![Transcribe Studio Interface](docs/screenshots/transcription_view.png)
+![Transcribe Studio Interface](docs/screenshots/linkedin/6_visao_geral.png)
 
 </div>
 
