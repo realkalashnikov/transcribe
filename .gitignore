@@ -24,3 +24,4 @@ venv/
 media/
 demo/
 bin/
+server.pid

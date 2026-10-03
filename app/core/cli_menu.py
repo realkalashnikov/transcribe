@@ -12,28 +12,56 @@ MENU_ITEMS = [
     {
         "key": "1",
         "action": "local",
-        "label": "1. Modo Local Pessoal (Apenas neste computador - Padrão)",
+        "label": "1. Iniciar Local com Navegador (Padrão)",
         "icon": "◈",
         "color": "\033[92m",  # Bright green
     },
     {
         "key": "2",
-        "action": "public",
-        "label": "2. Instância Pública / Amigos (Rede ou VPS com domínio)",
+        "action": "local_no_browser",
+        "label": "2. Iniciar Local sem abrir Navegador",
         "icon": "◈",
         "color": "\033[92m",  # Bright green
     },
     {
         "key": "3",
+        "action": "background",
+        "label": "3. Executar em Segundo Plano (Bandeja / Tray no relógio)",
+        "icon": "◈",
+        "color": "\033[95m",  # Bright magenta
+    },
+    {
+        "key": "4",
+        "action": "public",
+        "label": "4. Instância Pública / Amigos (Rede ou VPS)",
+        "icon": "◈",
+        "color": "\033[92m",  # Bright green
+    },
+    {
+        "key": "5",
         "action": "tunnel",
-        "label": "3. Túnel Cloudflare (Acesso externo rápido sem IP fixo / Celular)",
+        "label": "5. Túnel Cloudflare (Acesso remoto / Celular)",
         "icon": "◈",
         "color": "\033[96m",  # Bright cyan
     },
     {
-        "key": "4",
+        "key": "6",
+        "action": "open_browser",
+        "label": "6. Abrir Transcribe no Navegador",
+        "icon": "◈",
+        "color": "\033[94m",  # Bright blue
+    },
+    {
+        "key": "7",
+        "action": "stop_background",
+        "label": "7. Parar Servidor em Segundo Plano",
+        "icon": "◈",
+        "color": "\033[93m",  # Bright yellow
+    },
+    {
+        "key": "8",
         "action": "exit",
-        "label": "4. Sair",
+        "label": "8. Sair",
         "icon": "✕",
         "color": "\033[91m",  # Bright red
     },
@@ -113,7 +141,7 @@ def _get_key_windows():
         raise KeyboardInterrupt()
     elif ch == "\x1b":  # Escape
         return "escape"
-    elif ch in ("1", "2", "3", "4"):
+    elif ch in ("1", "2", "3", "4", "5", "6", "7", "8"):
         return ch
     elif ch in ("w", "W", "k", "K"):
         return "up"
@@ -161,7 +189,7 @@ def _get_key_posix():
             return "enter"
         elif ch == "\x03":
             raise KeyboardInterrupt()
-        elif ch in ("1", "2", "3", "4"):
+        elif ch in ("1", "2", "3", "4", "5", "6", "7", "8"):
             return ch
         elif ch in ("w", "W", "k", "K"):
             return "up"
@@ -204,6 +232,12 @@ def _render_menu(selected_idx: int, first_render: bool = False) -> int:
                 text_color = "\033[44;1;91m"
             elif item["action"] == "tunnel":
                 text_color = "\033[44;1;96m"
+            elif item["action"] == "background":
+                text_color = "\033[44;1;95m"
+            elif item["action"] == "open_browser":
+                text_color = "\033[44;1;94m"
+            elif item["action"] == "stop_background":
+                text_color = "\033[44;1;93m"
             else:
                 text_color = "\033[44;1;92m"
             raw_text = f" {icon} {label}"
@@ -214,11 +248,11 @@ def _render_menu(selected_idx: int, first_render: bool = False) -> int:
 
     lines.append("")
     # Dica de atalhos e navegação adaptável ao tamanho do terminal para não quebrar linha
-    hint = "(Use as setas ↑/↓ para navegar, Enter para confirmar ou 1-4 para atalho)"
+    hint = "(Use as setas ↑/↓ para navegar, Enter para confirmar ou 1-8 para atalho)"
     if term_width < len(hint) + 2:
-        hint = "(↑/↓ Navegar  •  Enter Confirmar  •  1-4 Atalho  •  Esc Sair)"
+        hint = "(↑/↓ Navegar  •  Enter Confirmar  •  1-8 Atalho  •  Esc Sair)"
     if term_width < len(hint) + 2:
-        hint = "(↑/↓: Mover | Enter: OK | 1-4: Atalho)"
+        hint = "(↑/↓: Mover | Enter: OK | 1-8: Atalho)"
     lines.append(f"\033[90m{hint}\033[0m")
 
     if not first_render:
@@ -238,7 +272,7 @@ def _run_fallback_menu():
         print(f"  [{item['key']}] {item['label']}")
     print()
     try:
-        choice = input("Escolha uma opção [1-4] (Padrão: 1): ").strip()
+        choice = input("Escolha uma opção [1-8] (Padrão: 1): ").strip()
     except (KeyboardInterrupt, EOFError):
         return "exit"
 
@@ -251,7 +285,7 @@ def _run_fallback_menu():
 def run_interactive_menu():
     """
     Exibe o menu interativo no terminal.
-    Retorna uma das strings: 'local', 'public', 'tunnel', 'exit'.
+    Retorna uma das strings: 'local', 'local_no_browser', 'background', 'public', 'tunnel', 'open_browser', 'stop_background', 'exit'.
     """
     _init_terminal()
 
@@ -285,7 +319,7 @@ def run_interactive_menu():
             elif key == "down":
                 selected_idx = (selected_idx + 1) % len(MENU_ITEMS)
                 _render_menu(selected_idx)
-            elif key in ("1", "2", "3", "4"):
+            elif key in ("1", "2", "3", "4", "5", "6", "7", "8"):
                 selected_idx = int(key) - 1
                 _render_menu(selected_idx)
                 break
@@ -309,12 +343,20 @@ def run_interactive_menu():
     # Mensagem de confirmação visual
     if chosen_action == "exit":
         _safe_write("\n\033[91m✕ Operação cancelada pelo usuário.\033[0m\n\n")
+    elif chosen_action == "local_no_browser":
+        _safe_write("\n\033[92m✔ Modo Local (sem abrir navegador) selecionado.\033[0m\n\n")
+    elif chosen_action == "background":
+        _safe_write("\n\033[95m✔ Executando em segundo plano (veja o ícone na bandeja do relógio).\033[0m\n\n")
     elif chosen_action == "public":
         _safe_write("\n\033[92m✔ Modo Instância Pública / Amigos selecionado.\033[0m\n\n")
     elif chosen_action == "tunnel":
         _safe_write("\n\033[96m✔ Modo Túnel Cloudflare selecionado.\033[0m\n\n")
+    elif chosen_action == "open_browser":
+        _safe_write("\n\033[94m✔ Abrindo Transcribe Studio no navegador...\033[0m\n\n")
+    elif chosen_action == "stop_background":
+        _safe_write("\n\033[93m✔ Parando servidor em segundo plano...\033[0m\n\n")
     else:
-        _safe_write("\n\033[92m✔ Modo Local Pessoal selecionado.\033[0m\n\n")
+        _safe_write("\n\033[92m✔ Modo Local com Navegador selecionado.\033[0m\n\n")
     sys.stdout.flush()
 
     return chosen_action

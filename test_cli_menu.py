@@ -13,11 +13,23 @@ import app.core.cli_menu as cli_menu
 class TestCliMenu(unittest.TestCase):
     def test_menu_items_structure(self):
         """Verifica se todos os itens do menu possuem chaves e ações esperadas."""
-        self.assertEqual(len(cli_menu.MENU_ITEMS), 4)
+        self.assertEqual(len(cli_menu.MENU_ITEMS), 8)
         actions = [item["action"] for item in cli_menu.MENU_ITEMS]
-        self.assertEqual(actions, ["local", "public", "tunnel", "exit"])
+        self.assertEqual(
+            actions,
+            [
+                "local",
+                "local_no_browser",
+                "background",
+                "public",
+                "tunnel",
+                "open_browser",
+                "stop_background",
+                "exit",
+            ],
+        )
         keys = [item["key"] for item in cli_menu.MENU_ITEMS]
-        self.assertEqual(keys, ["1", "2", "3", "4"])
+        self.assertEqual(keys, ["1", "2", "3", "4", "5", "6", "7", "8"])
 
     def test_render_menu_all_indices(self):
         """Verifica se a renderização não lança exceções para nenhum índice."""
@@ -48,9 +60,9 @@ class TestCliMenu(unittest.TestCase):
     @patch("sys.stdin.isatty", return_value=True)
     @patch("app.core.cli_menu.get_key", side_effect=["down", "enter"])
     def test_interactive_navigate_down(self, mock_get_key, mock_isatty):
-        """Navegar para baixo e pressionar Enter seleciona 'public'."""
+        """Navegar para baixo e pressionar Enter seleciona 'local_no_browser'."""
         result = cli_menu.run_interactive_menu()
-        self.assertEqual(result, "public")
+        self.assertEqual(result, "local_no_browser")
 
     @patch("sys.stdin.isatty", return_value=True)
     @patch("app.core.cli_menu.get_key", side_effect=["up", "enter"])
@@ -62,7 +74,14 @@ class TestCliMenu(unittest.TestCase):
     @patch("sys.stdin.isatty", return_value=True)
     @patch("app.core.cli_menu.get_key", side_effect=["3"])
     def test_direct_numeric_shortcut(self, mock_get_key, mock_isatty):
-        """Pressionar o dígito '3' deve selecionar imediatamente 'tunnel'."""
+        """Pressionar o dígito '3' deve selecionar imediatamente 'background'."""
+        result = cli_menu.run_interactive_menu()
+        self.assertEqual(result, "background")
+
+    @patch("sys.stdin.isatty", return_value=True)
+    @patch("app.core.cli_menu.get_key", side_effect=["5"])
+    def test_direct_numeric_shortcut_tunnel(self, mock_get_key, mock_isatty):
+        """Pressionar o dígito '5' deve selecionar imediatamente 'tunnel'."""
         result = cli_menu.run_interactive_menu()
         self.assertEqual(result, "tunnel")
 
@@ -92,6 +111,12 @@ class TestCliMenu(unittest.TestCase):
     @patch("builtins.input", side_effect=["2"])
     def test_run_fallback_menu_selection(self, mock_input):
         """Verifica seleção válida no menu de fallback."""
+        result = cli_menu._run_fallback_menu()
+        self.assertEqual(result, "local_no_browser")
+
+    @patch("builtins.input", side_effect=["4"])
+    def test_run_fallback_menu_public_selection(self, mock_input):
+        """Verifica seleção da opção 4 no menu de fallback."""
         result = cli_menu._run_fallback_menu()
         self.assertEqual(result, "public")
 
