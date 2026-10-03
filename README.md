@@ -21,6 +21,15 @@
 
 ---
 
+## Tour pelo app
+
+| | |
+|---|---|
+| **Motores locais** (faster-whisper / whisper.cpp)<br>![Motores locais](docs/screenshots/linkedin/1_motores_local.png) | **Motores em nuvem** (Groq, OpenAI, Gemini)<br>![Motores em nuvem](docs/screenshots/linkedin/1b_motores_nuvem.png) |
+| **Servidores customizados** (Ollama, vLLM, OpenRouter)<br>![Conexoes](docs/screenshots/linkedin/1c_gerenciador_conexoes.png) | **Chaves de API** (guardadas só no seu navegador)<br>![Chaves](docs/screenshots/linkedin/1c_chaves_api_nuvem.png) |
+| **Transcrição por link**<br>![URL](docs/screenshots/linkedin/2_transcricao_por_url.png) | **Gravação pelo microfone**<br>![Microfone](docs/screenshots/linkedin/2b_gravacao_microfone.png) |
+| **Player com timestamps clicáveis**<br>![Player](docs/screenshots/linkedin/3_player_e_minutagem.png) | **Ações com IA** (resumo, ata, tradução)<br>![IA](docs/screenshots/linkedin/4_acoes_ia_resumo.png) |
+
 ## ✨ Recursos Principais
 
 ### 🌐 Auto-Hospedagem & Instâncias Públicas (Estilo Cobalt)
@@ -43,7 +52,7 @@
 
 <div align="center">
 
-![Acesso Remoto com QR Code](docs/screenshots/remote_modal.png)
+![Acesso Remoto com QR Code](docs/screenshots/linkedin/5_acesso_remoto_qrcode.png)
 
 </div>
 
@@ -54,7 +63,7 @@
 
 <div align="center">
 
-![Diagnóstico de Hardware](docs/screenshots/hardware_modal.png)
+![Diagnóstico de Hardware](docs/screenshots/linkedin/1d_diagnostico_hardware.png)
 
 </div>
 
