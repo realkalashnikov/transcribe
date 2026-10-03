@@ -361,8 +361,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     }
 
-    // Inicialização
-    init();
+    // Inicialização (init() é chamado no final do escopo, após todas as declarações const)
 
     async function init() {
         if (window.AppIcons) window.AppIcons.renderAll();
@@ -2716,4 +2715,6 @@ document.addEventListener("DOMContentLoaded", () => {
         div.textContent = text;
         return div.innerHTML;
     }
+
+    init();
 });
