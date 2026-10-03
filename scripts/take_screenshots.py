@@ -169,9 +169,17 @@ def main():
         linkedin_dir.mkdir(parents=True, exist_ok=True)
         print("\n[+] Gerando pacote de prints em alta resolução dedicados para o LinkedIn...")
 
-        # LinkedIn 1: Seleção de Motores & Modelos (Local vs Nuvem)
-        print(" -> Gerando 1_motores_e_modelos.png...")
-        capture_edge("http://127.0.0.1:8008/?focus=motores", linkedin_dir / "1_motores_e_modelos.png", 1000, 1050, 1.6, temp_profile)
+        # LinkedIn 1: Motores Locais (Faster-Whisper, Whisper.cpp, int8)
+        print(" -> Gerando 1_motores_local.png...")
+        capture_edge("http://127.0.0.1:8008/?focus=motores", linkedin_dir / "1_motores_local.png", 1050, 1050, 1.55, temp_profile)
+
+        # LinkedIn 1b: Motores de Nuvem (Groq, OpenAI, Gemini)
+        print(" -> Gerando 1b_motores_nuvem.png...")
+        capture_edge("http://127.0.0.1:8008/?focus=nuvem", linkedin_dir / "1b_motores_nuvem.png", 1050, 1050, 1.55, temp_profile)
+
+        # LinkedIn 1c: Gerenciador de Servidores & APIs Próprias (Ollama, vLLM, OpenRouter)
+        print(" -> Gerando 1c_gerenciador_conexoes.png...")
+        capture_edge("http://127.0.0.1:8008/?focus=providers", linkedin_dir / "1c_gerenciador_conexoes.png", 1150, 950, 1.55, temp_profile)
 
         # LinkedIn 2: Ingestão por Link da Web / YouTube + Fila Ativa
         print(" -> Gerando 2_transcricao_por_url.png...")

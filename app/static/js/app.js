@@ -211,6 +211,7 @@ document.addEventListener("DOMContentLoaded", () => {
         setupSearch();
         setupInlineEditingAndRomanize();
         setupLLMActions();
+        setupCustomProvidersManager();
         setupRemoteModal();
         setupAuthModal();
 
@@ -224,35 +225,7 @@ document.addEventListener("DOMContentLoaded", () => {
             window.history.replaceState({}, document.title, cleanUrl);
         }
 
-        await loadSystemInfo();
-        await loadHistory();
-        loadSavedApiKeys();
-        
-        // Auto-carrega demo se solicitado via query param (para screenshots e previews)
-        if (params.get("demo")) {
-            const targetId = state.history.some(h => h.id === "demo_transcription") ? "demo_transcription" : (state.history.length > 0 ? state.history[0].id : null);
-            if (targetId) {
-                await openHistoryItem(targetId);
-                if (state.activeItem) {
-                    state.activeItem.audioUrl = "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=";
-                    audioPlayerContainer.classList.remove("hidden");
-                    audioTotalTime.textContent = "01:18";
-                    audioCurrentTime.textContent = "00:00";
-                    playBtnIcon.innerHTML = AppIcons.get("play", "ui-icon");
-
-                    // Preenche exemplo visual de Resumo com IA para preview
-                    const outBox = document.getElementById("llm-output-box");
-                    const outTitle = document.getElementById("llm-output-title");
-                    const outContent = document.getElementById("llm-output-content");
-                    if (outBox && outContent) {
-                        outBox.classList.remove("hidden");
-                        outTitle.innerHTML = `<span data-icon="fileText" data-icon-class="ui-icon ui-icon-sm"></span> 📝 Resumo Executivo (Groq / Llama-3.3-70B)`;
-                        outContent.innerHTML = `<strong>Visão Geral do Episódio:</strong>\n• <strong>Arquitetura Local:</strong> Apresentação do faster-whisper com quantização int8, alcançando processamento 4x mais rápido na CPU com consumo mínimo de RAM.\n• <strong>Privacidade & Segurança:</strong> Transcrição e arquivos persistidos 100% no disco local, sem dependência de nuvem ou vazamento de dados.\n• <strong>Novos Recursos:</strong> Demonstração de sincronização por palavra (Karaoke), edição inline e ingestão direta de links do YouTube com proteção anti-SSRF.\n\n<strong>Ações & Próximos Passos:</strong>\n1. Validar suporte para novos idiomas e romanização fonética automática.\n2. Expandir exportações para contêineres MP4 com legendas embutidas.`;
-                    }
-                }
-            }
-        }
-
+        // Aplica abas e modos de foco de forma síncrona imediata
         if (params.get("tab") === "url") {
             const tabUrl = document.getElementById("tab-dropzone-url");
             if (tabUrl) tabUrl.click();
@@ -262,7 +235,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
         if (params.get("story")) {
             document.body.classList.add("story-mode");
-            // Adiciona rodapé com link do GitHub para contexto no Story
             const footer = document.createElement("div");
             footer.className = "story-footer";
             footer.innerHTML = `
@@ -273,10 +245,6 @@ document.addEventListener("DOMContentLoaded", () => {
             document.querySelector(".app-container").appendChild(footer);
         }
 
-        if (params.get("remote")) {
-            await openRemoteModal();
-        }
-
         const focusMode = params.get("focus");
         if (focusMode) {
             document.body.classList.add(`focus-${focusMode}`);
@@ -285,6 +253,25 @@ document.addEventListener("DOMContentLoaded", () => {
                 const badge = document.createElement("div");
                 badge.className = "focus-card-badge";
                 badge.innerHTML = `${AppIcons.get("zap", "ui-icon")} 100% Local • CPU & GPU • Sem Dependência de Nuvem`;
+                const panel = document.querySelector(".control-panel");
+                if (panel) panel.appendChild(badge);
+            } else if (focusMode === "nuvem") {
+                if (tabCloud) tabCloud.click();
+                if (cloudProviderSelect) {
+                    cloudProviderSelect.value = "groq";
+                    updateCloudModels();
+                }
+                const badge = document.createElement("div");
+                badge.className = "focus-card-badge";
+                badge.innerHTML = `${AppIcons.get("cloud", "ui-icon")} APIs na Nuvem: Groq, OpenAI, Gemini e Servidores Customizados`;
+                const panel = document.querySelector(".control-panel");
+                if (panel) panel.appendChild(badge);
+            } else if (focusMode === "providers") {
+                if (tabCloud) tabCloud.click();
+                openProvidersModal();
+                const badge = document.createElement("div");
+                badge.className = "focus-card-badge";
+                badge.innerHTML = `${AppIcons.get("settings", "ui-icon")} Gerencie Servidores Próprios & APIs OpenAI-Compatíveis (Ollama, vLLM, OpenRouter)`;
                 const panel = document.querySelector(".control-panel");
                 if (panel) panel.appendChild(badge);
             } else if (focusMode === "url") {
@@ -333,6 +320,91 @@ document.addEventListener("DOMContentLoaded", () => {
                 if (resPanel) resPanel.appendChild(badge);
             }
         }
+
+        // Auto-carrega demo de forma síncrona imediata se solicitado via query param (para screenshots e previews)
+        if (params.get("demo")) {
+            const demoItem = {
+                id: "demo_transcription",
+                filename: "podcast_ia_futuro.mp3",
+                audioUrl: "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=",
+                result: {
+                    id: "demo_transcription",
+                    filename: "podcast_ia_futuro.mp3",
+                    duration: 48.5,
+                    language: "pt",
+                    provider: "faster-whisper",
+                    model: "faster-whisper-base",
+                    text: "Sejam todos muito bem-vindos a mais um episódio do nosso podcast sobre tecnologia e inteligência artificial. Hoje vamos discutir o avanço dos modelos de reconhecimento de fala com faster-whisper e a computação local sem dependência de nuvem.",
+                    segments: [
+                        {
+                            id: 1,
+                            start: 0.0,
+                            end: 6.2,
+                            text: "Sejam todos muito bem-vindos a mais um episódio do nosso podcast sobre tecnologia e inteligência artificial.",
+                            words: [
+                                { word: "Sejam", start: 0.0, end: 0.4 },
+                                { word: "todos", start: 0.45, end: 0.8 },
+                                { word: "muito", start: 0.85, end: 1.2 },
+                                { word: "bem-vindos", start: 1.25, end: 1.8 },
+                                { word: "a", start: 1.85, end: 2.0 },
+                                { word: "mais", start: 2.05, end: 2.3 },
+                                { word: "um", start: 2.35, end: 2.5 },
+                                { word: "episódio", start: 2.55, end: 3.1 },
+                                { word: "do", start: 3.15, end: 3.3 },
+                                { word: "nosso", start: 3.35, end: 3.6 },
+                                { word: "podcast", start: 3.65, end: 4.2 },
+                                { word: "sobre", start: 4.25, end: 4.6 },
+                                { word: "tecnologia", start: 4.65, end: 5.3 },
+                                { word: "e", start: 5.35, end: 5.5 },
+                                { word: "inteligência", start: 5.55, end: 6.0 },
+                                { word: "artificial.", start: 6.05, end: 6.2 }
+                            ]
+                        },
+                        {
+                            id: 2,
+                            start: 6.5,
+                            end: 14.8,
+                            text: "Hoje vamos discutir o avanço dos modelos de reconhecimento de fala com faster-whisper e a computação local sem dependência de nuvem."
+                        },
+                        {
+                            id: 3,
+                            start: 15.2,
+                            end: 22.0,
+                            text: "Com a quantização em int8, é possível rodar modelos modernos diretamente na CPU com alta eficiência e baixo consumo de memória."
+                        },
+                        {
+                            id: 4,
+                            start: 22.5,
+                            end: 31.0,
+                            text: "Além disso, a integração com whisper.cpp e APIs na nuvem como Groq trazem flexibilidade para qualquer cenário de uso."
+                        }
+                    ]
+                }
+            };
+            showTranscriptionResult(demoItem);
+            if (audioPlayerContainer) audioPlayerContainer.classList.remove("hidden");
+            if (audioTotalTime) audioTotalTime.textContent = "01:18";
+            if (audioCurrentTime) audioCurrentTime.textContent = "00:00";
+            if (playBtnIcon) playBtnIcon.innerHTML = AppIcons.get("play", "ui-icon");
+
+            // Preenche exemplo visual de Resumo com IA para preview
+            const outBox = document.getElementById("llm-output-box");
+            const outTitle = document.getElementById("llm-output-title");
+            const outContent = document.getElementById("llm-output-content");
+            if (outBox && outContent) {
+                outBox.classList.remove("hidden");
+                if (outTitle) outTitle.innerHTML = `<span data-icon="fileText" data-icon-class="ui-icon ui-icon-sm"></span> Resumo Executivo (Groq / Llama-3.3-70B)`;
+                outContent.innerHTML = `<strong>Visão Geral do Episódio:</strong>\n• <strong>Arquitetura Local:</strong> Apresentação do faster-whisper com quantização int8, alcançando processamento 4x mais rápido na CPU com consumo mínimo de RAM.\n• <strong>Privacidade & Segurança:</strong> Transcrição e arquivos persistidos 100% no disco local, sem dependência de nuvem ou vazamento de dados.\n• <strong>Novos Recursos:</strong> Demonstração de sincronização por palavra (Karaoke), edição inline e ingestão direta de links do YouTube com proteção anti-SSRF.\n\n<strong>Ações & Próximos Passos:</strong>\n1. Validar suporte para novos idiomas e romanização fonética automática.\n2. Expandir exportações para contêineres MP4 com legendas embutidas.`;
+            }
+        }
+
+        if (params.get("remote")) {
+            await openRemoteModal();
+        }
+
+        await loadSystemInfo();
+        await loadHistory();
+        loadSavedApiKeys();
 
         if (window.AppIcons) window.AppIcons.renderAll();
     }
@@ -396,6 +468,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 opt.textContent = p.name;
                 cloudProviderSelect.appendChild(opt);
             });
+            populateCustomProviderOptions();
             updateCloudModels();
 
             // Popula idiomas
@@ -571,26 +644,55 @@ document.addEventListener("DOMContentLoaded", () => {
 
         if (cloudBaseUrlInput) {
             cloudBaseUrlInput.addEventListener("input", () => {
-                localStorage.setItem("transcribe_custom_base_url", cloudBaseUrlInput.value.trim());
+                const prov = cloudProviderSelect.value;
+                if (prov.startsWith("custom_")) {
+                    const list = getCustomProviders();
+                    const item = list.find(p => p.id === prov);
+                    if (item) {
+                        item.base_url = cloudBaseUrlInput.value.trim();
+                        saveCustomProviders(list);
+                    }
+                } else {
+                    localStorage.setItem("transcribe_custom_base_url", cloudBaseUrlInput.value.trim());
+                }
             });
         }
 
         if (cloudCustomModelInput) {
             cloudCustomModelInput.addEventListener("input", () => {
-                localStorage.setItem("transcribe_custom_model", cloudCustomModelInput.value.trim());
+                const prov = cloudProviderSelect.value;
+                if (prov.startsWith("custom_")) {
+                    const list = getCustomProviders();
+                    const item = list.find(p => p.id === prov);
+                    if (item) {
+                        item.default_model = cloudCustomModelInput.value.trim();
+                        saveCustomProviders(list);
+                    }
+                } else {
+                    localStorage.setItem("transcribe_custom_model", cloudCustomModelInput.value.trim());
+                }
             });
         }
 
         cloudApiKeyInput.addEventListener("input", () => {
             const provider = cloudProviderSelect.value;
-            localStorage.setItem(`transcribe_key_${provider}`, cloudApiKeyInput.value.trim());
+            if (provider.startsWith("custom_")) {
+                const list = getCustomProviders();
+                const item = list.find(p => p.id === provider);
+                if (item) {
+                    item.api_key = cloudApiKeyInput.value.trim();
+                    saveCustomProviders(list);
+                }
+            } else {
+                localStorage.setItem(`transcribe_key_${provider}`, cloudApiKeyInput.value.trim());
+            }
             updateStartButtonState();
         });
     }
 
     function syncCloudCustomInputs() {
         const providerId = cloudProviderSelect ? cloudProviderSelect.value : "";
-        const isCustomProvider = providerId === "custom";
+        const isCustomProvider = providerId === "custom" || providerId.startsWith("custom_");
         const isCustomModel = (cloudModelSelect && cloudModelSelect.value === "custom") || isCustomProvider;
 
         if (cloudBaseUrlGroup) {
@@ -601,17 +703,52 @@ document.addEventListener("DOMContentLoaded", () => {
         }
 
         if (isCustomProvider && cloudBaseUrlInput && !cloudBaseUrlInput.value) {
-            cloudBaseUrlInput.value = localStorage.getItem("transcribe_custom_base_url") || "http://localhost:11434/v1";
+            if (providerId.startsWith("custom_")) {
+                const cp = getCustomProviders().find(p => p.id === providerId);
+                if (cp) cloudBaseUrlInput.value = cp.base_url || "";
+            } else {
+                cloudBaseUrlInput.value = localStorage.getItem("transcribe_custom_base_url") || "http://localhost:11434/v1";
+            }
         }
         if (isCustomModel && cloudCustomModelInput && !cloudCustomModelInput.value) {
-            cloudCustomModelInput.value = localStorage.getItem("transcribe_custom_model") || "";
+            if (providerId.startsWith("custom_")) {
+                const cp = getCustomProviders().find(p => p.id === providerId);
+                if (cp) cloudCustomModelInput.value = cp.default_model || "";
+            } else {
+                cloudCustomModelInput.value = localStorage.getItem("transcribe_custom_model") || "";
+            }
         }
     }
 
     function updateCloudModels() {
         const providerId = cloudProviderSelect.value;
-        const provider = state.providers.find(p => p.id === providerId);
         cloudModelSelect.innerHTML = "";
+
+        if (providerId.startsWith("custom_")) {
+            const customProv = getCustomProviders().find(p => p.id === providerId);
+            if (customProv) {
+                const opt = document.createElement("option");
+                opt.value = customProv.default_model || "whisper-1";
+                opt.textContent = `${customProv.default_model || "whisper-1"} (Padrão)`;
+                opt.selected = true;
+                cloudModelSelect.appendChild(opt);
+
+                const customOpt = document.createElement("option");
+                customOpt.value = "custom";
+                customOpt.textContent = "Personalizado / Outro modelo...";
+                cloudModelSelect.appendChild(customOpt);
+
+                if (apiKeyLink) apiKeyLink.style.display = "none";
+                if (cloudBaseUrlGroup) cloudBaseUrlGroup.style.display = "block";
+                if (cloudCustomModelGroup) cloudCustomModelGroup.style.display = "block";
+                if (cloudBaseUrlInput) cloudBaseUrlInput.value = customProv.base_url || "";
+                if (cloudCustomModelInput) cloudCustomModelInput.value = customProv.default_model || "";
+                if (cloudApiKeyInput) cloudApiKeyInput.value = customProv.api_key || "";
+            }
+            return;
+        }
+
+        const provider = state.providers.find(p => p.id === providerId);
         if (!provider) return;
 
         if (apiKeyLink) {
@@ -647,6 +784,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
     function loadSavedApiKeyForCurrentProvider() {
         const provider = cloudProviderSelect.value;
+        if (provider.startsWith("custom_")) {
+            const customProv = getCustomProviders().find(p => p.id === provider);
+            cloudApiKeyInput.value = (customProv && customProv.api_key) || "";
+            return;
+        }
         const saved = localStorage.getItem(`transcribe_key_${provider}`) || "";
         cloudApiKeyInput.value = saved;
     }
@@ -744,11 +886,24 @@ document.addEventListener("DOMContentLoaded", () => {
                         chosenEngine = localEngineSelect ? localEngineSelect.value : "faster-whisper";
                         chosenModel = localModelSelect ? localModelSelect.value : "base";
                     } else {
-                        chosenEngine = cloudProviderSelect.value;
-                        const isCustomModel = cloudModelSelect.value === "custom" || chosenEngine === "custom";
-                        chosenModel = isCustomModel ? (cloudCustomModelInput?.value.trim() || "whisper-1") : cloudModelSelect.value;
+                        const prov = cloudProviderSelect.value;
                         apiKey = cloudApiKeyInput.value.trim() || null;
-                        baseUrl = chosenEngine === "custom" ? (cloudBaseUrlInput?.value.trim() || null) : null;
+                        if (prov.startsWith("custom_")) {
+                            const customProv = getCustomProviders().find(p => p.id === prov);
+                            chosenEngine = "custom";
+                            if (customProv) {
+                                baseUrl = (cloudBaseUrlInput && cloudBaseUrlInput.value.trim()) || customProv.base_url;
+                                chosenModel = (cloudCustomModelInput && cloudCustomModelInput.value.trim()) || customProv.default_model;
+                                if (!apiKey) apiKey = customProv.api_key || null;
+                            }
+                        } else if (prov === "custom") {
+                            chosenEngine = "custom";
+                            chosenModel = cloudCustomModelInput?.value.trim() || "whisper-1";
+                            baseUrl = cloudBaseUrlInput?.value.trim() || null;
+                        } else {
+                            chosenEngine = prov;
+                            chosenModel = cloudModelSelect.value === "custom" ? (cloudCustomModelInput?.value.trim() || "whisper-1") : cloudModelSelect.value;
+                        }
                     }
 
                     const payload = {
@@ -929,6 +1084,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const customModelInput = document.getElementById("llm-custom-model");
 
         if (providerSel) {
+            populateCustomProviderOptions();
             providerSel.addEventListener("change", () => {
                 if (customSettings) {
                     if (providerSel.value === "custom") {
@@ -944,9 +1100,10 @@ document.addEventListener("DOMContentLoaded", () => {
             btn.addEventListener("click", async () => {
                 if (!state.activeItem || !state.activeItem.result) return;
                 const action = btn.dataset.action;
-                const provider = providerSel ? providerSel.value : "groq";
+                const rawProvider = providerSel ? providerSel.value : "groq";
+                let provider = rawProvider;
                 const targetLang = targetLangSel ? targetLangSel.value : "pt";
-                const apiKey = (cloudApiKeyInput && cloudApiKeyInput.value.trim()) || localStorage.getItem(`transcribe_key_${provider}`) || "";
+                let apiKey = (cloudApiKeyInput && cloudApiKeyInput.value.trim()) || localStorage.getItem(`transcribe_key_${rawProvider}`) || "";
 
                 const actionTitles = {
                     summary: "Resumo Executivo",
@@ -955,16 +1112,27 @@ document.addEventListener("DOMContentLoaded", () => {
                     translate: `Tradução para ${targetLang.toUpperCase()}`
                 };
 
-                if (outputBox) outputBox.classList.remove("hidden");
-                if (outputTitle) outputTitle.textContent = actionTitles[action] || "Processando com IA...";
-                if (outputContent) outputContent.innerHTML = `<span style="color: var(--text-dim);">Aguarde... conectando ao provedor ${provider.toUpperCase()}</span>`;
-
                 let customUrl = null;
                 let customModel = null;
-                if (provider === "custom") {
+                let displayName = rawProvider.toUpperCase();
+
+                if (rawProvider.startsWith("custom_")) {
+                    const customProv = getCustomProviders().find(p => p.id === rawProvider);
+                    provider = "custom";
+                    if (customProv) {
+                        customUrl = customProv.base_url;
+                        customModel = customProv.default_model;
+                        displayName = customProv.name;
+                        apiKey = customProv.api_key || apiKey || "";
+                    }
+                } else if (rawProvider === "custom") {
                     customUrl = customUrlInput ? customUrlInput.value.trim() : null;
                     customModel = customModelInput ? customModelInput.value.trim() : null;
                 }
+
+                if (outputBox) outputBox.classList.remove("hidden");
+                if (outputTitle) outputTitle.textContent = actionTitles[action] || "Processando com IA...";
+                if (outputContent) outputContent.innerHTML = `<span style="color: var(--text-dim);">Aguarde... conectando ao provedor ${escapeHtml(displayName)}</span>`;
 
                 try {
                     const resp = await apiRequest("/api/summarize", {
@@ -1226,8 +1394,10 @@ document.addEventListener("DOMContentLoaded", () => {
         let valid = hasPendingFiles && !state.isProcessing;
 
         if (state.mode === "cloud") {
+            const provider = cloudProviderSelect ? cloudProviderSelect.value : "";
+            const isCustom = provider === "custom" || provider.startsWith("custom_");
             const key = cloudApiKeyInput.value.trim();
-            if (!key) valid = false;
+            if (!key && !isCustom) valid = false;
         }
 
         startTranscribeBtn.disabled = !valid;
@@ -1616,13 +1786,35 @@ document.addEventListener("DOMContentLoaded", () => {
             formData.append("model", localModelSelect.value);
         } else {
             const prov = cloudProviderSelect.value;
-            const isCustomModel = cloudModelSelect.value === "custom" || prov === "custom";
-            const modelVal = isCustomModel ? (cloudCustomModelInput?.value.trim() || "whisper-1") : cloudModelSelect.value;
-            formData.append("provider", prov);
+            let actualProv = prov;
+            let baseUrl = null;
+            let key = cloudApiKeyInput.value.trim();
+            let modelVal = cloudModelSelect.value;
+
+            if (prov.startsWith("custom_")) {
+                const customProv = getCustomProviders().find(p => p.id === prov);
+                actualProv = "custom";
+                if (customProv) {
+                    baseUrl = (cloudBaseUrlInput && cloudBaseUrlInput.value.trim()) || customProv.base_url;
+                    modelVal = (cloudCustomModelInput && cloudCustomModelInput.value.trim()) || customProv.default_model;
+                    if (!key) key = customProv.api_key || "";
+                }
+            } else if (prov === "custom") {
+                const isCustomModel = cloudModelSelect.value === "custom";
+                modelVal = isCustomModel ? (cloudCustomModelInput?.value.trim() || "whisper-1") : cloudModelSelect.value;
+                if (cloudBaseUrlInput && cloudBaseUrlInput.value.trim()) {
+                    baseUrl = cloudBaseUrlInput.value.trim();
+                }
+            } else {
+                const isCustomModel = cloudModelSelect.value === "custom";
+                modelVal = isCustomModel ? (cloudCustomModelInput?.value.trim() || "whisper-1") : cloudModelSelect.value;
+            }
+
+            formData.append("provider", actualProv);
             formData.append("model", modelVal);
-            formData.append("api_key", cloudApiKeyInput.value.trim());
-            if (prov === "custom" && cloudBaseUrlInput && cloudBaseUrlInput.value.trim()) {
-                formData.append("base_url", cloudBaseUrlInput.value.trim());
+            formData.append("api_key", key);
+            if (baseUrl) {
+                formData.append("base_url", baseUrl);
             }
         }
 
@@ -1913,6 +2105,234 @@ document.addEventListener("DOMContentLoaded", () => {
                 </div>
             `;
         }
+    }
+
+    // ==========================================
+    // Gerenciador de Servidores & APIs Personalizadas (OpenAI-compatível)
+    // ==========================================
+    const DEFAULT_CUSTOM_PROVIDERS = [
+        {
+            id: "custom_ollama_local",
+            name: "Ollama Local (11434)",
+            base_url: "http://localhost:11434/v1",
+            default_model: "whisper-large-v3",
+            api_key: "",
+            type: "all"
+        },
+        {
+            id: "custom_openrouter_deepseek",
+            name: "OpenRouter (DeepSeek)",
+            base_url: "https://openrouter.ai/api/v1",
+            default_model: "deepseek/deepseek-chat",
+            api_key: "",
+            type: "llm"
+        }
+    ];
+
+    function getCustomProviders() {
+        try {
+            const raw = localStorage.getItem("transcribe_custom_providers");
+            if (!raw) {
+                localStorage.setItem("transcribe_custom_providers", JSON.stringify(DEFAULT_CUSTOM_PROVIDERS));
+                return [...DEFAULT_CUSTOM_PROVIDERS];
+            }
+            const parsed = JSON.parse(raw);
+            if (Array.isArray(parsed)) return parsed;
+        } catch (e) {
+            console.warn("Erro ao ler transcribe_custom_providers:", e);
+        }
+        return [...DEFAULT_CUSTOM_PROVIDERS];
+    }
+
+    function saveCustomProviders(list) {
+        localStorage.setItem("transcribe_custom_providers", JSON.stringify(list));
+    }
+
+    function renderCustomProvidersList() {
+        const list = getCustomProviders();
+        const listEl = document.getElementById("custom-providers-list");
+        const countEl = document.getElementById("custom-providers-count");
+        if (countEl) countEl.textContent = list.length;
+        if (!listEl) return;
+
+        if (list.length === 0) {
+            listEl.innerHTML = `<div class="empty-providers-hint">Nenhuma conexão personalizada ativa. Adicione uma no formulário abaixo!</div>`;
+            return;
+        }
+
+        listEl.innerHTML = list.map(item => {
+            let typeBadge = "";
+            if (item.type === "all") {
+                typeBadge = `<span class="custom-prov-badge" style="background: rgba(99,102,241,0.2); color: #818cf8;">Whisper + IA</span>`;
+            } else if (item.type === "transcribe") {
+                typeBadge = `<span class="custom-prov-badge" style="background: rgba(16,185,129,0.2); color: #34d399;">Apenas Whisper</span>`;
+            } else {
+                typeBadge = `<span class="custom-prov-badge" style="background: rgba(245,158,11,0.2); color: #fbbf24;">Apenas IA / LLM</span>`;
+            }
+
+            const safeName = escapeHtml(item.name);
+            const safeUrl = escapeHtml(item.base_url);
+            const safeModel = escapeHtml(item.default_model || "Padrão");
+            const hasKey = !!item.api_key;
+
+            return `
+                <div class="custom-provider-item" data-id="${item.id}">
+                    <div class="custom-prov-info">
+                        <div class="custom-prov-title">
+                            <strong>${safeName}</strong>
+                            ${typeBadge}
+                            ${hasKey ? '<span style="font-size: 0.7rem; color: var(--text-dim); background: rgba(255,255,255,0.05); padding: 1px 5px; border-radius: 3px;">🔑 Com chave</span>' : '<span style="font-size: 0.7rem; color: var(--text-dim);">🔓 Sem chave (local)</span>'}
+                        </div>
+                        <div class="custom-prov-sub">
+                            <span title="${safeUrl}">🌐 ${safeUrl}</span> • <span>📦 ${safeModel}</span>
+                        </div>
+                    </div>
+                    <div class="custom-prov-actions">
+                        <button type="button" class="btn-icon-danger btn-delete-custom-prov" data-id="${item.id}" title="Excluir conexão">
+                            <span data-icon="trash" data-icon-class="ui-icon ui-icon-sm"></span>
+                        </button>
+                    </div>
+                </div>
+            `;
+        }).join("");
+
+        if (window.AppIcons) window.AppIcons.renderAll();
+
+        listEl.querySelectorAll(".btn-delete-custom-prov").forEach(btn => {
+            btn.addEventListener("click", () => {
+                const id = btn.dataset.id;
+                const filtered = getCustomProviders().filter(p => p.id !== id);
+                saveCustomProviders(filtered);
+                renderCustomProvidersList();
+                populateCustomProviderOptions();
+                updateCloudModels();
+                showToast("Conexão removida com sucesso!");
+            });
+        });
+    }
+
+    function populateCustomProviderOptions() {
+        const list = getCustomProviders();
+
+        // 1. No Select de Motores de Nuvem (#cloud-provider)
+        if (cloudProviderSelect) {
+            const prevGroup = cloudProviderSelect.querySelector("optgroup[data-custom-group='true']");
+            if (prevGroup) prevGroup.remove();
+
+            const transcribeProviders = list.filter(p => p.type === "all" || p.type === "transcribe");
+            if (transcribeProviders.length > 0) {
+                const optgroup = document.createElement("optgroup");
+                optgroup.label = "── Conexões Personalizadas ──";
+                optgroup.dataset.customGroup = "true";
+                transcribeProviders.forEach(p => {
+                    const opt = document.createElement("option");
+                    opt.value = p.id;
+                    opt.textContent = `⚡ ${p.name}`;
+                    optgroup.appendChild(opt);
+                });
+                cloudProviderSelect.appendChild(optgroup);
+            }
+        }
+
+        // 2. No Select de IA (#llm-provider-select)
+        const llmProviderSel = document.getElementById("llm-provider-select");
+        if (llmProviderSel) {
+            const prevLlmGroup = llmProviderSel.querySelector("optgroup[data-custom-group='true']");
+            if (prevLlmGroup) prevLlmGroup.remove();
+
+            const llmProviders = list.filter(p => p.type === "all" || p.type === "llm");
+            if (llmProviders.length > 0) {
+                const optgroup = document.createElement("optgroup");
+                optgroup.label = "── Conexões Personalizadas ──";
+                optgroup.dataset.customGroup = "true";
+                llmProviders.forEach(p => {
+                    const opt = document.createElement("option");
+                    opt.value = p.id;
+                    opt.textContent = `⚡ ${p.name}`;
+                    optgroup.appendChild(opt);
+                });
+                llmProviderSel.appendChild(optgroup);
+            }
+        }
+    }
+
+    function openProvidersModal() {
+        const modal = document.getElementById("modal-custom-providers");
+        if (modal) {
+            modal.classList.remove("hidden");
+            renderCustomProvidersList();
+        }
+    }
+
+    function closeProvidersModal() {
+        const modal = document.getElementById("modal-custom-providers");
+        if (modal) {
+            modal.classList.add("hidden");
+        }
+    }
+
+    function setupCustomProvidersManager() {
+        const btnOpen = document.getElementById("btn-open-custom-providers");
+        const btnOpenLlm = document.getElementById("btn-open-custom-providers-llm");
+        const btnClose = document.getElementById("btn-close-providers-modal");
+        const modal = document.getElementById("modal-custom-providers");
+        const formNew = document.getElementById("form-new-custom-provider");
+
+        if (btnOpen) btnOpen.addEventListener("click", openProvidersModal);
+        if (btnOpenLlm) btnOpenLlm.addEventListener("click", openProvidersModal);
+        if (btnClose) btnClose.addEventListener("click", closeProvidersModal);
+        if (modal) {
+            modal.addEventListener("click", (e) => {
+                if (e.target === modal) closeProvidersModal();
+            });
+        }
+
+        if (formNew) {
+            formNew.addEventListener("submit", (e) => {
+                e.preventDefault();
+                const nameInput = document.getElementById("new-prov-name");
+                const urlInput = document.getElementById("new-prov-url");
+                const modelInput = document.getElementById("new-prov-model");
+                const keyInput = document.getElementById("new-prov-key");
+                const typeSelect = document.getElementById("new-prov-type");
+
+                const name = nameInput ? nameInput.value.trim() : "";
+                const url = urlInput ? urlInput.value.trim() : "";
+                const model = modelInput ? modelInput.value.trim() : "";
+                const key = keyInput ? keyInput.value.trim() : "";
+                const type = typeSelect ? typeSelect.value : "all";
+
+                if (!name || !url) {
+                    showToast("Por favor, preencha o Nome e a URL da conexão.");
+                    return;
+                }
+
+                const newProv = {
+                    id: "custom_" + Date.now().toString(36) + Math.random().toString(36).substring(2, 6),
+                    name: name,
+                    base_url: url,
+                    default_model: model || "whisper-large-v3",
+                    api_key: key,
+                    type: type
+                };
+
+                const current = getCustomProviders();
+                current.push(newProv);
+                saveCustomProviders(current);
+
+                renderCustomProvidersList();
+                populateCustomProviderOptions();
+
+                if (nameInput) nameInput.value = "";
+                if (urlInput) urlInput.value = "";
+                if (modelInput) modelInput.value = "";
+                if (keyInput) keyInput.value = "";
+
+                showToast(`Conexão "${name}" salva com sucesso!`);
+            });
+        }
+
+        populateCustomProviderOptions();
     }
 
     function resetTranscriptView() {

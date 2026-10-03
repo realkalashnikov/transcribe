@@ -9,6 +9,86 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <script>
+        (function() {
+            try {
+                const q = new URLSearchParams(window.location.search);
+                const focus = q.get("focus");
+                if (focus) document.documentElement.classList.add("focus-" + focus);
+            } catch(e) {}
+        })();
+
+        window.addEventListener("DOMContentLoaded", function() {
+            try {
+                const q = new URLSearchParams(window.location.search);
+                if (!q.get("demo")) return;
+
+                const body = document.getElementById("transcript-body");
+                if (body) {
+                    body.className = "transcript-body";
+                    body.innerHTML = `
+                        <div class="segment-item">
+                            <button class="timestamp">00:00</button>
+                            <div class="segment-content">
+                                <p class="segment-text">Sejam todos muito bem-vindos a mais um episódio do nosso podcast sobre tecnologia e inteligência artificial.</p>
+                            </div>
+                        </div>
+                        <div class="segment-item">
+                            <button class="timestamp">00:06</button>
+                            <div class="segment-content">
+                                <p class="segment-text">Hoje vamos discutir o avanço dos modelos de reconhecimento de fala com faster-whisper e a computação local sem dependência de nuvem.</p>
+                            </div>
+                        </div>
+                        <div class="segment-item">
+                            <button class="timestamp">00:15</button>
+                            <div class="segment-content">
+                                <p class="segment-text">Com a quantização em int8, é possível rodar modelos modernos diretamente na CPU com alta eficiência e baixo consumo de memória.</p>
+                            </div>
+                        </div>
+                        <div class="segment-item">
+                            <button class="timestamp">00:22</button>
+                            <div class="segment-content">
+                                <p class="segment-text">Além disso, a integração com whisper.cpp e APIs na nuvem como Groq trazem flexibilidade para qualquer cenário de uso.</p>
+                            </div>
+                        </div>
+                    `;
+                }
+                const player = document.getElementById("audio-player-container");
+                if (player) player.classList.remove("hidden");
+                const cur = document.getElementById("audio-current-time");
+                if (cur) cur.textContent = "00:00";
+                const tot = document.getElementById("audio-total-time");
+                if (tot) tot.textContent = "00:48";
+
+                const meta = document.getElementById("transcript-meta");
+                if (meta) meta.style.display = "flex";
+                const exp = document.getElementById("export-actions");
+                if (exp) exp.style.display = "flex";
+                const stats = document.getElementById("stats-strip");
+                if (stats) stats.classList.remove("hidden");
+                const dur = document.getElementById("stat-duration");
+                if (dur) dur.textContent = "48.5s";
+                const words = document.getElementById("stat-words");
+                if (words) words.textContent = "58";
+                const chars = document.getElementById("stat-chars");
+                if (chars) chars.textContent = "382";
+                const segs = document.getElementById("stat-segments");
+                if (segs) segs.textContent = "4";
+
+                const title = document.getElementById("transcript-filename");
+                if (title) title.innerHTML = `<span>podcast_ia_futuro.mp3</span>`;
+
+                const llm = document.getElementById("llm-actions-card");
+                if (llm) llm.classList.remove("hidden");
+                const outBox = document.getElementById("llm-output-box");
+                const outTitle = document.getElementById("llm-output-title");
+                const outContent = document.getElementById("llm-output-content");
+                if (outBox) outBox.classList.remove("hidden");
+                if (outTitle) outTitle.innerHTML = `<span>📝 Resumo Executivo (Groq / Llama-3.3-70B)</span>`;
+                if (outContent) outContent.innerHTML = `<strong>Visão Geral do Episódio:</strong>\n• <strong>Arquitetura Local:</strong> Apresentação do faster-whisper com quantização int8, alcançando processamento 4x mais rápido na CPU com consumo mínimo de RAM.\n• <strong>Privacidade & Segurança:</strong> Transcrição e arquivos persistidos 100% no disco local, sem dependência de nuvem ou vazamento de dados.\n• <strong>Novos Recursos:</strong> Demonstração de sincronização por palavra (Karaoke), edição inline e ingestão direta de links do YouTube com proteção anti-SSRF.\n\n<strong>Ações & Próximos Passos:</strong>\n1. Validar suporte para novos idiomas e romanização fonética automática.\n2. Expandir exportações para contêineres MP4 com legendas embutidas.`;
+            } catch(e) {}
+        });
+    </script>
 </head>
 <body>
     <div class="app-container">
@@ -22,9 +102,9 @@
                 </div>
             </div>
             <div class="header-actions">
-                <span id="hardware-badge" class="badge badge-cpu">
-                    <span data-icon="cpu" data-icon-class="ui-icon ui-icon-sm"></span>
-                    <span id="hardware-text">Detectando Hardware...</span>
+                <span id="hardware-badge" class="badge badge-cuda">
+                    <span data-icon="zap" data-icon-class="ui-icon ui-icon-sm"></span>
+                    <span id="hardware-text">Motor Local Ativo (Faster-Whisper)</span>
                 </span>
                 <button type="button" id="remote-btn" class="btn btn-outline btn-remote">
                     <span data-icon="smartphone" data-icon-class="ui-icon ui-icon-sm"></span>
@@ -90,7 +170,13 @@
                         <span>Configurações de Nuvem</span>
                     </div>
                     <div class="form-group">
-                        <label for="cloud-provider">Provedor de API</label>
+                        <div class="label-with-link">
+                            <label for="cloud-provider">Provedor de API</label>
+                            <button type="button" id="btn-open-custom-providers" class="link-btn-subtle" title="Gerenciar servidores e modelos personalizados">
+                                <span data-icon="settings" data-icon-class="ui-icon ui-icon-sm"></span>
+                                Conectar Servidor / API
+                            </button>
+                        </div>
                         <select id="cloud-provider" class="form-control">
                             <option value="groq" selected>Groq (Whisper-large-v3 ultra-rápido)</option>
                             <option value="openai">OpenAI (Whisper-1 oficial)</option>
@@ -368,14 +454,16 @@
                             <span data-icon="zap" data-icon-class="ui-icon"></span>
                             <span>Ações Inteligentes com IA</span>
                         </div>
-                        <div class="llm-header-right">
+                        <div class="llm-header-right" style="display: flex; gap: 8px; align-items: center;">
                             <select id="llm-provider-select" class="form-control form-control-sm">
                                 <option value="groq" selected>Groq (Llama-3.3-70b)</option>
                                 <option value="gemini">Gemini 2.5 Flash</option>
                                 <option value="openai">OpenAI (GPT-4o-mini)</option>
                                 <option value="ollama">Ollama Local (Offline)</option>
-                                <option value="custom">Personalizado (URL & Modelo)</option>
                             </select>
+                            <button type="button" id="btn-open-custom-providers-llm" class="btn btn-sm btn-outline" title="Conectar ou gerenciar outros modelos e endpoints de IA" style="padding: 5px 8px; display: inline-flex; align-items: center;">
+                                <span data-icon="settings" data-icon-class="ui-icon ui-icon-sm"></span>
+                            </button>
                         </div>
                     </div>
                     <div id="llm-custom-settings" class="llm-custom-settings hidden" style="margin-bottom: 12px; padding: 10px 12px; background: rgba(0,0,0,0.2); border-radius: var(--radius-sm); border: 1px solid var(--border-subtle);">
@@ -527,6 +615,107 @@
                         <span data-icon="shield" data-icon-class="ui-icon ui-icon-sm"></span>
                         <span>Desbloquear Acesso</span>
                     </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Gerenciamento de Conexões Personalizadas (OpenAI-compatível) -->
+    <div id="modal-custom-providers" class="modal-overlay hidden">
+        <div class="modal-card modal-providers">
+            <div class="modal-header">
+                <div class="modal-title-flex">
+                    <span data-icon="cpu" data-icon-class="ui-icon"></span>
+                    <h3>Gerenciar Conexões de IA & Modelos</h3>
+                </div>
+                <button type="button" class="btn-close" id="btn-close-providers-modal">
+                    <span data-icon="x" data-icon-class="ui-icon"></span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <p class="modal-subtitle">Conecte seus próprios servidores e endpoints compatíveis com OpenAI (Ollama, vLLM, OpenRouter, LocalAI ou proxies).</p>
+
+                <!-- Lista de Conexões Existentes -->
+                <div class="providers-section-header">
+                    <span>Conexões Ativas</span>
+                    <span id="custom-providers-count" class="badge-counter">2</span>
+                </div>
+                <div id="custom-providers-list" class="custom-providers-list">
+                    <div class="custom-provider-item" data-id="custom_ollama_local">
+                        <div class="custom-prov-info">
+                            <div class="custom-prov-title">
+                                <strong>Ollama Local (11434)</strong>
+                                <span class="custom-prov-badge" style="background: rgba(99,102,241,0.2); color: #818cf8;">Whisper + IA</span>
+                                <span style="font-size: 0.7rem; color: var(--text-dim);">🔓 Sem chave (local)</span>
+                            </div>
+                            <div class="custom-prov-sub">
+                                <span>🌐 http://localhost:11434/v1</span> • <span>📦 whisper-large-v3</span>
+                            </div>
+                        </div>
+                        <div class="custom-prov-actions">
+                            <button type="button" class="btn-icon-danger btn-delete-custom-prov" data-id="custom_ollama_local" title="Excluir conexão">
+                                <span data-icon="trash" data-icon-class="ui-icon ui-icon-sm"></span>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="custom-provider-item" data-id="custom_openrouter_deepseek">
+                        <div class="custom-prov-info">
+                            <div class="custom-prov-title">
+                                <strong>OpenRouter (DeepSeek)</strong>
+                                <span class="custom-prov-badge" style="background: rgba(245,158,11,0.2); color: #fbbf24;">Apenas IA / LLM</span>
+                                <span style="font-size: 0.7rem; color: var(--text-dim); background: rgba(255,255,255,0.05); padding: 1px 5px; border-radius: 3px;">🔑 Com chave</span>
+                            </div>
+                            <div class="custom-prov-sub">
+                                <span>🌐 https://openrouter.ai/api/v1</span> • <span>📦 deepseek/deepseek-chat</span>
+                            </div>
+                        </div>
+                        <div class="custom-prov-actions">
+                            <button type="button" class="btn-icon-danger btn-delete-custom-prov" data-id="custom_openrouter_deepseek" title="Excluir conexão">
+                                <span data-icon="trash" data-icon-class="ui-icon ui-icon-sm"></span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Formulário para Nova Conexão -->
+                <div class="providers-section-header" style="margin-top: 22px;">
+                    <span>+ Adicionar Nova Conexão</span>
+                </div>
+                <form id="form-new-custom-provider" class="custom-provider-form" onsubmit="return false;">
+                    <div class="form-row">
+                        <div class="form-group" style="flex: 1.2;">
+                            <label for="new-prov-name">Nome Amigável</label>
+                            <input type="text" id="new-prov-name" class="form-control" placeholder="Ex: Meu Ollama Local, OpenRouter" required>
+                        </div>
+                        <div class="form-group" style="flex: 1.8;">
+                            <label for="new-prov-url">URL Base / Endpoint (OpenAI-compatível)</label>
+                            <input type="text" id="new-prov-url" class="form-control" placeholder="Ex: http://localhost:11434/v1 ou https://openrouter.ai/api/v1" required>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group" style="flex: 1.2;">
+                            <label for="new-prov-model">Nome do Modelo</label>
+                            <input type="text" id="new-prov-model" class="form-control" placeholder="Ex: whisper-large-v3, deepseek-chat, llama3.3" required>
+                        </div>
+                        <div class="form-group" style="flex: 1.8;">
+                            <label for="new-prov-key">Chave de API (Opcional se local)</label>
+                            <input type="password" id="new-prov-key" class="form-control" placeholder="sk-... (deixe vazio se for servidor local)">
+                        </div>
+                    </div>
+                    <div class="form-row custom-prov-bottom-row">
+                        <div class="form-group" style="margin-bottom: 0;">
+                            <label for="new-prov-type" style="margin-bottom: 4px;">Finalidade</label>
+                            <select id="new-prov-type" class="form-control form-control-sm" style="width: auto;">
+                                <option value="all" selected>Transcrição (Whisper) + Ações IA (LLM)</option>
+                                <option value="transcribe">Apenas Transcrição de Áudio (Whisper)</option>
+                                <option value="llm">Apenas Ações de IA (Resumos/Atas)</option>
+                            </select>
+                        </div>
+                        <button type="submit" id="btn-save-custom-provider" class="btn btn-primary" style="margin-top: 18px;">
+                            <span data-icon="check" data-icon-class="ui-icon ui-icon-sm"></span>
+                            <span>Salvar Conexão</span>
+                        </button>
+                    </div>
                 </form>
             </div>
         </div>
