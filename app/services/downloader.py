@@ -117,7 +117,7 @@ class MediaDownloader:
             'noplaylist': True,
             'quiet': True,
             'no_warnings': True,
-            'max_filesize': settings.max_upload_size_bytes,
+            'max_filesize': getattr(settings, 'max_upload_size_bytes', settings.max_upload_size_mb * 1024 * 1024) if getattr(settings, 'max_upload_size_mb', 0) > 0 else None,
         }
 
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:

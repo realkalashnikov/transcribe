@@ -99,6 +99,10 @@ class Settings:
     def is_private(self) -> bool:
         return self.instance_mode == "private"
 
+    @property
+    def max_upload_size_bytes(self) -> int:
+        return self.max_upload_size_mb * 1024 * 1024
+
     def to_public_dict(self) -> Dict[str, Any]:
         """Metadados seguros da instância para exibição pública e APIs externas."""
         return {
