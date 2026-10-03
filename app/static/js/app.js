@@ -1,4 +1,146 @@
 // Transcribe Studio - Frontend Logic
+
+// Estado global e cache de hardware
+window.__CACHED_HARDWARE = null;
+
+// Atualização universal e reativa do Modal de Hardware (funciona antes e depois do DOMContentLoaded)
+window.__updateHardwareModalUI = function(hwData) {
+    const hw = hwData || window.__CACHED_HARDWARE;
+    if (!hw) {
+        fetch("/api/info")
+            .then(res => res.json())
+            .then(data => {
+                if (data && data.hardware) {
+                    window.__CACHED_HARDWARE = data.hardware;
+                    window.__updateHardwareModalUI(data.hardware);
+                }
+            })
+            .catch(() => {});
+        return;
+    }
+
+    window.__CACHED_HARDWARE = hw;
+
+    const cpuEl = document.getElementById("hw-cpu-name");
+    const coresEl = document.getElementById("hw-cpu-cores");
+    const ramEl = document.getElementById("hw-ram-total");
+    const gpuNameEl = document.getElementById("hw-gpu-name");
+    const gpuStatusEl = document.getElementById("hw-gpu-status");
+    const recEl = document.getElementById("hw-recommendation");
+    const recSubEl = document.getElementById("hw-recommendation-sub");
+    const bannerEl = document.getElementById("hw-banner-text");
+    const optCpu = document.getElementById("opt-modal-cpu");
+
+    const cpuClean = hw.cpu_name ? hw.cpu_name.split(" with ")[0].replace(/Processor|Quad-Core|Six-Core|Eight-Core/gi, "").trim() : "Processador CPU";
+
+    if (cpuEl) cpuEl.textContent = cpuClean;
+    if (coresEl) coresEl.textContent = `${hw.cpu_cores || 1} threads de processamento`;
+    if (ramEl) ramEl.textContent = hw.ram_gb ? `${hw.ram_gb} GB` : "Memória Padrão";
+
+    if (gpuNameEl) {
+        gpuNameEl.textContent = hw.gpu_name || "Nenhuma GPU dedicada detectada";
+    }
+    if (gpuStatusEl) {
+        if (hw.gpu_available) {
+            gpuStatusEl.textContent = "Aceleração NVIDIA CUDA Ativa";
+            gpuStatusEl.style.color = "var(--success)";
+        } else if (hw.gpu_vendor === "AMD" || (hw.gpu_name && (hw.gpu_name.includes("Radeon") || hw.gpu_name.includes("RX ")))) {
+            gpuStatusEl.textContent = `Inferência via CPU (${cpuClean})`;
+            gpuStatusEl.style.color = "var(--info)";
+        } else if (hw.gpu_name && hw.gpu_name !== "Nenhuma GPU dedicada detectada") {
+            gpuStatusEl.textContent = `Inferência via CPU (${cpuClean})`;
+            gpuStatusEl.style.color = "var(--info)";
+        } else {
+            gpuStatusEl.textContent = `Modo CPU int8 (${cpuClean})`;
+            gpuStatusEl.style.color = "var(--text-muted)";
+        }
+    }
+
+    if (recEl) {
+        recEl.textContent = hw.gpu_available ? (hw.gpu_name || "NVIDIA GPU (CUDA)") : `${cpuClean} (${hw.cpu_cores || 1} Threads)`;
+    }
+    if (recSubEl) {
+        recSubEl.textContent = hw.gpu_available ? "Aceleração gráfica ativa" : `Quantização int8 multithread (${hw.cpu_cores || 1} threads)`;
+    }
+    if (bannerEl) {
+        if (hw.execution_notes) {
+            bannerEl.textContent = hw.execution_notes;
+        } else {
+            bannerEl.textContent = `O processamento local com faster-whisper (CTranslate2) utiliza quantização int8 nos ${hw.cpu_cores || 1} threads da ${cpuClean}, transcrevendo offline com velocidade extrema, sem envio de dados e com baixo consumo de memória.`;
+        }
+    }
+
+    if (optCpu) {
+        optCpu.textContent = `Processador CPU (${cpuClean} - int8 multithread)`;
+    }
+
+    const modal = document.getElementById("modal-hardware-details");
+    if (window.AppIcons && modal) {
+        window.AppIcons.renderAll(modal);
+    }
+};
+
+// Funções globais de controle de modais (disponíveis imediatamente no escopo window)
+window.__closeAllModals = function() {
+    document.querySelectorAll(".modal-overlay").forEach(m => m.classList.add("hidden"));
+};
+window.__openHardwareModal = function() {
+    const m = document.getElementById("modal-hardware-details");
+    if (m) m.classList.remove("hidden");
+    if (window.__updateHardwareModalUI) {
+        window.__updateHardwareModalUI();
+    }
+    if (window.AppIcons) window.AppIcons.renderAll();
+};
+window.__closeHardwareModal = function() {
+    const m = document.getElementById("modal-hardware-details");
+    if (m) m.classList.add("hidden");
+};
+window.__openRemoteModal = function() {
+    const m = document.getElementById("remote-modal");
+    if (m) m.classList.remove("hidden");
+    if (window.__switchRemoteTab) window.__switchRemoteTab('lan');
+    if (window.AppIcons) window.AppIcons.renderAll();
+};
+window.__closeRemoteModal = function() {
+    const m = document.getElementById("remote-modal");
+    if (m) m.classList.add("hidden");
+};
+window.__openProvidersModal = function() {
+    const m = document.getElementById("modal-custom-providers");
+    if (m) m.classList.remove("hidden");
+    if (window.AppIcons) window.AppIcons.renderAll();
+};
+window.__closeProvidersModal = function() {
+    const m = document.getElementById("modal-custom-providers");
+    if (m) m.classList.add("hidden");
+};
+window.__switchRemoteTab = function(tabName) {
+    const tabInternet = document.getElementById("tab-remote-internet");
+    const tabLan = document.getElementById("tab-remote-lan");
+    const contentInternet = document.getElementById("remote-content-internet");
+    const contentLan = document.getElementById("remote-content-lan");
+
+    if (tabName === "lan") {
+        if (tabLan) tabLan.classList.add("active");
+        if (tabInternet) tabInternet.classList.remove("active");
+        if (contentLan) contentLan.classList.remove("hidden");
+        if (contentInternet) contentInternet.classList.add("hidden");
+    } else {
+        if (tabInternet) tabInternet.classList.add("active");
+        if (tabLan) tabLan.classList.remove("active");
+        if (contentInternet) contentInternet.classList.remove("hidden");
+        if (contentLan) contentLan.classList.add("hidden");
+    }
+};
+
+// Listener global para fechar modais com tecla Escape
+document.addEventListener("keydown", function(e) {
+    if (e.key === "Escape" || e.keyCode === 27) {
+        window.__closeAllModals();
+    }
+});
+
 document.addEventListener("DOMContentLoaded", () => {
     // Estado da aplicação
     const state = {
@@ -17,7 +159,8 @@ document.addEventListener("DOMContentLoaded", () => {
         localModels: [],
         languages: [],
         searchQuery: "",
-        showRomanized: false
+        showRomanized: false,
+        hardware: null
     };
 
     const API_BASE = "";
@@ -236,7 +379,9 @@ document.addEventListener("DOMContentLoaded", () => {
         setupCustomProvidersManager();
         setupRemoteModal();
         setupAuthModal();
+        setupHardwareModal();
         populateAllProviderSelects();
+        loadHistory();
 
         // Checa se há PIN na URL para login automático com 1 toque
         const params = new URLSearchParams(window.location.search);
@@ -427,6 +572,10 @@ document.addEventListener("DOMContentLoaded", () => {
             await openRemoteModal();
         }
 
+        if (params.get("hardware")) {
+            window.__openHardwareModal();
+        }
+
         await loadSystemInfo();
         await loadHistory();
         loadSavedApiKeys();
@@ -440,17 +589,67 @@ document.addEventListener("DOMContentLoaded", () => {
             const resp = await apiRequest("/api/info");
             const data = await resp.json();
 
-            // Atualiza Hardware Badge com texto explícito de CPU / GPU
-            if (data.cuda_available) {
-                hardwareText.textContent = "Hardware: GPU NVIDIA (CUDA Ativa)";
-                hardwareBadge.className = "badge badge-cuda";
+            if (data.hardware) {
+                state.hardware = data.hardware;
+                window.__CACHED_HARDWARE = data.hardware;
+                if (window.__updateHardwareModalUI) {
+                    window.__updateHardwareModalUI(data.hardware);
+                }
+            }
+
+            // Atualiza Hardware Badge com texto detalhado de CPU / GPU
+            const hw = data.hardware || {};
+            if (data.cuda_available || hw.gpu_available) {
+                const gpuLabel = hw.gpu_name || "GPU NVIDIA";
+                hardwareText.textContent = `${gpuLabel} (CUDA Ativa)`;
+                hardwareBadge.className = "badge badge-cuda badge-hardware";
                 const iconBox = hardwareBadge.querySelector("[data-icon]") || hardwareBadge.querySelector("svg");
                 if (iconBox) iconBox.outerHTML = `<span data-icon="zap" data-icon-class="ui-icon ui-icon-sm">${AppIcons.get("zap", "ui-icon ui-icon-sm")}</span>`;
             } else {
-                hardwareText.textContent = "Hardware: Processamento em CPU (int8)";
-                hardwareBadge.className = "badge badge-cpu";
+                let cpuShort = "Processador CPU";
+                if (hw.cpu_name) {
+                    cpuShort = hw.cpu_name.split(" with ")[0].replace(/Processor|Quad-Core|Six-Core|Eight-Core/gi, "").trim();
+                }
+                const threads = hw.cpu_cores ? ` (${hw.cpu_cores} Núcleos)` : "";
+                
+                // Se possui placa AMD detectada (ex: RX 6600)
+                let gpuTag = "CPU";
+                if (hw.gpu_name && (hw.gpu_vendor === "AMD" || hw.gpu_name.includes("Radeon") || hw.gpu_name.includes("RX "))) {
+                    const shortGpu = hw.gpu_name.replace("AMD Radeon ", "").trim();
+                    gpuTag = `${shortGpu} Detectada`;
+                }
+                hardwareText.textContent = `${cpuShort}${threads} • ${gpuTag}`;
+                hardwareBadge.className = "badge badge-cpu badge-hardware";
+                hardwareBadge.title = `Clique para ver diagnóstico completo (${cpuShort} + ${hw.gpu_name || "GPU"})`;
                 const iconBox = hardwareBadge.querySelector("[data-icon]") || hardwareBadge.querySelector("svg");
                 if (iconBox) iconBox.outerHTML = `<span data-icon="cpu" data-icon-class="ui-icon ui-icon-sm">${AppIcons.get("cpu", "ui-icon ui-icon-sm")}</span>`;
+            }
+
+            // Atualiza opções do seletor de aceleração local
+            const localDevSel = document.getElementById("local-device");
+            const optLocalCuda = document.getElementById("opt-local-cuda");
+            const localDeviceHelp = document.getElementById("local-device-help");
+            if (optLocalCuda) {
+                const cpuLabel = hw.cpu_name ? hw.cpu_name.split(" with ")[0].replace(/Processor|Quad-Core|Six-Core|Eight-Core/gi, "").trim() : "CPU";
+                if (data.cuda_available || hw.gpu_available) {
+                    optLocalCuda.disabled = false;
+                    optLocalCuda.textContent = "Placa de Vídeo GPU (NVIDIA CUDA - Ativa)";
+                    if (localDeviceHelp) localDeviceHelp.textContent = "Aceleração por hardware CUDA disponível para Whisper.";
+                } else if (hw.gpu_vendor === "AMD" || (hw.gpu_name && hw.gpu_name.includes("Radeon"))) {
+                    optLocalCuda.disabled = true;
+                    optLocalCuda.textContent = `Placa de Vídeo GPU (${hw.gpu_name} - Modo CPU int8)`;
+                    if (localDevSel && localDevSel.value === "cuda") {
+                        localDevSel.value = "auto";
+                    }
+                    if (localDeviceHelp) localDeviceHelp.textContent = `${hw.gpu_name} detectada. No Windows, faster-whisper executa com máxima velocidade na ${cpuLabel} (${hw.cpu_cores || 1} threads int8).`;
+                } else {
+                    optLocalCuda.disabled = true;
+                    optLocalCuda.textContent = "Placa de Vídeo GPU (NVIDIA CUDA - Não detectada)";
+                    if (localDevSel && localDevSel.value === "cuda") {
+                        localDevSel.value = "auto";
+                    }
+                    if (localDeviceHelp) localDeviceHelp.textContent = "Inferência otimizada via CPU INT8 (CTranslate2).";
+                }
             }
 
             // Em modo BYOK, oculta aba local e seleciona Nuvem
@@ -758,6 +957,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const LLM_MODELS_MAP = {
         groq: [
             { id: "llama-3.3-70b-versatile", name: "Llama 3.3 70B (Recomendado)" },
+            { id: "llama-3.1-8b-instant", name: "Llama 3.1 8B (Ultrarrápido)" },
             { id: "mixtral-8x7b-32768", name: "Mixtral 8x7B (Janela de 32k tokens)" },
             { id: "gemma2-9b-it", name: "Gemma 2 9B" }
         ],
@@ -813,6 +1013,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const modelSel = document.getElementById("llm-model-select");
         if (!provSel || !modelSel) return;
         const provId = provSel.value;
+        const currentVal = modelSel.value;
         modelSel.innerHTML = "";
 
         if (provId.startsWith("custom_")) {
@@ -831,9 +1032,12 @@ document.addEventListener("DOMContentLoaded", () => {
             const opt = document.createElement("option");
             opt.value = m.id;
             opt.textContent = m.name;
-            if (idx === 0) opt.selected = true;
+            if (currentVal === m.id || (!currentVal && idx === 0)) opt.selected = true;
             modelSel.appendChild(opt);
         });
+        if (!modelSel.value && models.length > 0) {
+            modelSel.value = models[0].id;
+        }
     }
 
     function loadSavedApiKeys() {
@@ -1554,17 +1758,25 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     }
 
-    async function openRemoteModal() {
+    function openRemoteModal() {
         if (!remoteModal) return;
         remoteModal.classList.remove("hidden");
-        await loadTunnelInfo();
+        // Garante que a aba Wi-Fi esteja visível por padrão
+        if (window.__switchRemoteTab) {
+            window.__switchRemoteTab("lan");
+        }
         if (window.AppIcons) window.AppIcons.renderAll();
+        // Carrega dados e QR Codes sem travar a interface
+        loadTunnelInfo();
     }
 
     function closeRemoteModal() {
         if (!remoteModal) return;
         remoteModal.classList.add("hidden");
     }
+
+    window.__openRemoteModal = openRemoteModal;
+    window.__closeRemoteModal = closeRemoteModal;
 
     async function loadTunnelInfo() {
         try {
@@ -1583,38 +1795,43 @@ document.addEventListener("DOMContentLoaded", () => {
 
             // Link do Túnel Cloudflare
             if (data.tunnel_active && data.public_url) {
-                tunnelActiveBox.classList.remove("hidden");
-                tunnelInactiveBox.classList.add("hidden");
+                if (tunnelActiveBox) tunnelActiveBox.classList.remove("hidden");
+                if (tunnelInactiveBox) tunnelInactiveBox.classList.add("hidden");
 
                 let publicLink = data.public_url;
                 if (data.requires_pin && data.access_pin) {
                     publicLink += `?pin=${data.access_pin}`;
                 }
-                tunnelUrlInput.value = publicLink;
+                if (tunnelUrlInput) tunnelUrlInput.value = publicLink;
 
                 if (window.QRCodeSVG && qrContainerPublic) {
-                    qrContainerPublic.innerHTML = window.QRCodeSVG.generate(publicLink, 180);
+                    qrContainerPublic.innerHTML = window.QRCodeSVG.generate(publicLink, 200);
                 }
 
                 if (data.requires_pin && data.access_pin) {
-                    pinDisplayBox.classList.remove("hidden");
-                    displayPinCode.textContent = data.access_pin;
+                    if (pinDisplayBox) pinDisplayBox.classList.remove("hidden");
+                    if (displayPinCode) displayPinCode.textContent = data.access_pin;
                 } else {
-                    pinDisplayBox.classList.add("hidden");
+                    if (pinDisplayBox) pinDisplayBox.classList.add("hidden");
                 }
+
+                // Se túnel estiver ativo, foca na aba de internet
+                if (window.__switchRemoteTab) window.__switchRemoteTab("internet");
             } else {
-                tunnelActiveBox.classList.add("hidden");
-                tunnelInactiveBox.classList.remove("hidden");
+                if (tunnelActiveBox) tunnelActiveBox.classList.add("hidden");
+                if (tunnelInactiveBox) tunnelInactiveBox.classList.remove("hidden");
+                // Se túnel estiver inativo, mantém foco na aba Wi-Fi local
+                if (window.__switchRemoteTab) window.__switchRemoteTab("lan");
             }
 
             // Link Wi-Fi Local
-            let lanLink = data.lan_url;
+            let lanLink = data.lan_url || `http://localhost:${data.port || 8000}`;
             if (data.requires_pin && data.access_pin) {
                 lanLink += `?pin=${data.access_pin}`;
             }
             if (lanUrlInput) lanUrlInput.value = lanLink;
             if (window.QRCodeSVG && qrContainerLan) {
-                qrContainerLan.innerHTML = window.QRCodeSVG.generate(lanLink, 180);
+                qrContainerLan.innerHTML = window.QRCodeSVG.generate(lanLink, 200);
             }
         } catch (e) {
             console.error("Erro ao carregar informações de túnel:", e);
@@ -1662,6 +1879,72 @@ document.addEventListener("DOMContentLoaded", () => {
     function closeAuthModal() {
         if (!authModal) return;
         authModal.classList.add("hidden");
+    }
+
+    // Modal de Diagnóstico e Hardware
+    function setupHardwareModal() {
+        const modal = document.getElementById("modal-hardware-details");
+        const btnClose = document.getElementById("btn-close-hardware-modal");
+        const btnDone = document.getElementById("btn-done-hardware-modal");
+        const deviceSelect = document.getElementById("modal-device-select");
+        if (!modal) return;
+
+        function openModal() {
+            if (window.__updateHardwareModalUI) {
+                window.__updateHardwareModalUI(state.hardware);
+            }
+
+            // Sincroniza o seletor rápido dentro do modal
+            if (deviceSelect) {
+                if (state.mode === "cloud") {
+                    deviceSelect.value = "cloud";
+                } else if (localEngineSelect && localEngineSelect.value === "whisper.cpp") {
+                    deviceSelect.value = "whisper.cpp";
+                } else {
+                    deviceSelect.value = "cpu";
+                }
+            }
+
+            modal.classList.remove("hidden");
+            if (window.AppIcons) window.AppIcons.renderAll();
+        }
+
+        function closeModal() {
+            modal.classList.add("hidden");
+        }
+
+        window.__openHardwareModal = openModal;
+        window.__closeHardwareModal = closeModal;
+
+        if (deviceSelect) {
+            deviceSelect.addEventListener("change", (e) => {
+                const val = e.target.value;
+                if (val === "cpu") {
+                    if (tabLocal) tabLocal.click();
+                    if (localEngineSelect) localEngineSelect.value = "faster-whisper";
+                    const dev = document.getElementById("local-device");
+                    if (dev) dev.value = "cpu";
+                    showToast("Processamento definido para Processador CPU (faster-whisper int8)!");
+                } else if (val === "whisper.cpp") {
+                    if (tabLocal) tabLocal.click();
+                    if (localEngineSelect) localEngineSelect.value = "whisper.cpp";
+                    showToast("Processamento definido para Whisper.cpp (C++ Otimizado)!");
+                } else if (val === "cloud") {
+                    if (tabCloud) tabCloud.click();
+                    showToast("Processamento definido para Provedores em Nuvem!");
+                }
+            });
+        }
+
+        if (hardwareBadge) {
+            hardwareBadge.addEventListener("click", openModal);
+        }
+        if (btnClose) btnClose.addEventListener("click", closeModal);
+        if (btnDone) btnDone.addEventListener("click", closeModal);
+
+        modal.addEventListener("click", (e) => {
+            if (e.target === modal) closeModal();
+        });
     }
 
     // Ações de Botões e Exportações
@@ -1811,6 +2094,10 @@ document.addEventListener("DOMContentLoaded", () => {
             const chosenEngine = localEngineSelect ? localEngineSelect.value : "faster-whisper";
             formData.append("provider", chosenEngine);
             formData.append("model", localModelSelect ? localModelSelect.value : "base");
+            const localDevSel = document.getElementById("local-device");
+            if (localDevSel && localDevSel.value) {
+                formData.append("device", localDevSel.value);
+            }
         } else {
             const prov = cloudProviderSelect ? cloudProviderSelect.value : "groq";
             const actualProv = prov.startsWith("custom_") ? "custom" : prov;

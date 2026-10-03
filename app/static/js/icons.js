@@ -64,11 +64,17 @@ function getIcon(name, customClass = "") {
 
 window.AppIcons = {
     get: getIcon,
-    renderAll: function() {
-        document.querySelectorAll("[data-icon]").forEach(el => {
+    renderAll: function(root = document) {
+        const target = root || document;
+        target.querySelectorAll("[data-icon]").forEach(el => {
             const iconName = el.getAttribute("data-icon");
-            const customClass = el.getAttribute("data-icon-class") || "ui-icon";
-            el.innerHTML = getIcon(iconName, customClass);
+            if (!iconName) return;
+            // Só insere se não tiver SVG filho ou se for explicitamente marcado
+            if (el.children.length === 0 || el.getAttribute("data-icon-rendered") !== iconName) {
+                const customClass = el.getAttribute("data-icon-class") || "ui-icon";
+                el.innerHTML = getIcon(iconName, customClass);
+                el.setAttribute("data-icon-rendered", iconName);
+            }
         });
     }
 };
