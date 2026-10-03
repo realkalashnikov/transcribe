@@ -1351,11 +1351,34 @@ document.addEventListener("DOMContentLoaded", () => {
         showToast(`Arquivo .${format.toUpperCase()} baixado!`);
     }
 
-    function showToast(message) {
+    function showToast(message, type = null) {
+        if (!toastContainer) return;
+        let resolvedType = type;
+        if (!resolvedType) {
+            const lower = (message || "").toLowerCase();
+            if (lower.includes("erro") || lower.includes("falha") || lower.includes("error") || lower.includes("bloqueio") || lower.includes("falhou") || lower.includes("incorreto")) {
+                resolvedType = "error";
+            } else if (lower.includes("sucesso") || lower.includes("copiado") || lower.includes("baixado") || lower.includes("salvo") || lower.includes("pronto")) {
+                resolvedType = "success";
+            } else if (lower.includes("atenção") || lower.includes("cuidado") || lower.includes("aviso") || lower.includes("aguarde")) {
+                resolvedType = "warning";
+            } else {
+                resolvedType = "info";
+            }
+        }
+
+        const iconMap = {
+            error: "x",
+            warning: "alertCircle",
+            success: "check",
+            info: "info"
+        };
+        const iconName = iconMap[resolvedType] || "info";
+
         const toast = document.createElement("div");
-        toast.className = "toast toast-success";
+        toast.className = `toast toast-${resolvedType}`;
         toast.innerHTML = `
-            <span class="toast-icon">${AppIcons.get("check", "ui-icon")}</span>
+            <span class="toast-icon">${AppIcons.get(iconName, "ui-icon")}</span>
             <span>${escapeHtml(message)}</span>
         `;
         toastContainer.appendChild(toast);
@@ -1364,7 +1387,7 @@ document.addEventListener("DOMContentLoaded", () => {
             toast.style.transform = "translateY(10px)";
             toast.style.transition = "all 0.3s";
             setTimeout(() => toast.remove(), 300);
-        }, 2500);
+        }, 3000);
     }
 
     // Execução da fila de transcrição
@@ -1523,44 +1546,49 @@ document.addEventListener("DOMContentLoaded", () => {
 
     function showTranscriptionResult(item) {
         state.activeItem = item;
-        const res = item.result;
+        const res = item.result || {};
         const displayName = item.file ? item.file.name : (item.filename || "Transcrição");
 
-        transcriptFilename.innerHTML = `
-            <span class="card-title-icon">${AppIcons.get("fileText", "ui-icon")}</span>
-            <span>${escapeHtml(displayName)}</span>
-        `;
-        transcriptMeta.style.display = "flex";
-        exportActions.style.display = "flex";
-        statsStrip.classList.remove("hidden");
-        searchWrapper.classList.remove("hidden");
+        if (transcriptFilename) {
+            transcriptFilename.innerHTML = `
+                <span class="card-title-icon">${AppIcons.get("fileText", "ui-icon")}</span>
+                <span>${escapeHtml(displayName)}</span>
+            `;
+        }
+        if (transcriptMeta) transcriptMeta.style.display = "flex";
+        if (exportActions) exportActions.style.display = "flex";
+        if (statsStrip) statsStrip.classList.remove("hidden");
+        if (searchWrapper) searchWrapper.classList.remove("hidden");
 
         // Metatags
-        metaDuration.innerHTML = `${AppIcons.get("clock", "ui-icon ui-icon-sm")} ${(res.duration || 0).toFixed(1)}s`;
-        metaLang.innerHTML = `${AppIcons.get("globe", "ui-icon ui-icon-sm")} ${res.language ? res.language.toUpperCase() : 'AUTO'}`;
-        metaEngine.innerHTML = `${AppIcons.get("zap", "ui-icon ui-icon-sm")} ${res.provider || 'local'}`;
+        if (metaDuration) metaDuration.innerHTML = `${AppIcons.get("clock", "ui-icon ui-icon-sm")} ${(res.duration || 0).toFixed(1)}s`;
+        if (metaLang) metaLang.innerHTML = `${AppIcons.get("globe", "ui-icon ui-icon-sm")} ${res.language ? res.language.toUpperCase() : 'AUTO'}`;
+        if (metaEngine) metaEngine.innerHTML = `${AppIcons.get("zap", "ui-icon ui-icon-sm")} ${res.provider || 'local'}`;
 
         // Estatísticas
-        statDuration.textContent = `${(res.duration || 0).toFixed(1)}s`;
+        if (statDuration) statDuration.textContent = `${(res.duration || 0).toFixed(1)}s`;
         const words = res.text ? res.text.trim().split(/\s+/).filter(Boolean).length : 0;
-        statWords.textContent = words.toLocaleString();
-        statChars.textContent = (res.text ? res.text.length : 0).toLocaleString();
-        statSegments.textContent = (res.segments ? res.segments.length : 0).toString();
+        if (statWords) statWords.textContent = words.toLocaleString();
+        if (statChars) statChars.textContent = (res.text ? res.text.length : 0).toLocaleString();
+        if (statSegments) statSegments.textContent = (res.segments ? res.segments.length : 0).toString();
 
         // Configura Audio Player se o arquivo de áudio estiver disponível
-        if (item.audioUrl) {
+        if (item.audioUrl && audioPlayerContainer) {
             audioPlayerContainer.classList.remove("hidden");
-            nativeAudio.src = item.audioUrl;
-            playBtnIcon.innerHTML = AppIcons.get("play", "ui-icon");
-            audioScrubber.value = 0;
-            audioCurrentTime.textContent = "00:00";
-            if (res.duration) {
+            if (nativeAudio) nativeAudio.src = item.audioUrl;
+            if (playBtnIcon) playBtnIcon.innerHTML = AppIcons.get("play", "ui-icon");
+            if (audioScrubber) audioScrubber.value = 0;
+            if (audioCurrentTime) audioCurrentTime.textContent = "00:00";
+            if (res.duration && audioTotalTime) {
                 audioTotalTime.textContent = formatTime(res.duration);
             }
-            nativeAudio.onerror = () => {
-                audioPlayerContainer.classList.add("hidden");
-            };
-        } else {
+            if (nativeAudio) {
+                nativeAudio.onerror = () => {
+                    const isDemo = new URLSearchParams(window.location.search).get("demo");
+                    if (audioPlayerContainer && !isDemo) audioPlayerContainer.classList.add("hidden");
+                };
+            }
+        } else if (audioPlayerContainer) {
             audioPlayerContainer.classList.add("hidden");
             if (nativeAudio) {
                 nativeAudio.pause();
@@ -1672,41 +1700,47 @@ document.addEventListener("DOMContentLoaded", () => {
 
     function showErrorInView(item) {
         const displayName = item.file ? item.file.name : (item.filename || "Arquivo");
-        transcriptFilename.innerHTML = `
-            <span class="card-title-icon">${AppIcons.get("fileText", "ui-icon")}</span>
-            <span>${escapeHtml(displayName)}</span>
-        `;
-        transcriptMeta.style.display = "none";
-        exportActions.style.display = "none";
-        audioPlayerContainer.classList.add("hidden");
-        statsStrip.classList.add("hidden");
-        searchWrapper.classList.add("hidden");
+        if (transcriptFilename) {
+            transcriptFilename.innerHTML = `
+                <span class="card-title-icon">${AppIcons.get("fileText", "ui-icon")}</span>
+                <span>${escapeHtml(displayName)}</span>
+            `;
+        }
+        if (transcriptMeta) transcriptMeta.style.display = "none";
+        if (exportActions) exportActions.style.display = "none";
+        if (audioPlayerContainer) audioPlayerContainer.classList.add("hidden");
+        if (statsStrip) statsStrip.classList.add("hidden");
+        if (searchWrapper) searchWrapper.classList.add("hidden");
         if (llmActionsCard) llmActionsCard.classList.add("hidden");
         if (toggleRomanizeBtn) toggleRomanizeBtn.classList.add("hidden");
         if (saveEditBtn) saveEditBtn.classList.add("hidden");
 
-        transcriptBody.className = "transcript-body";
-        transcriptBody.innerHTML = `
-            <div style="color: var(--danger); padding: 30px; text-align: center;">
-                <div style="width: 48px; height: 48px; margin: 0 auto 12px; color: var(--danger); display: flex; align-items: center; justify-content: center;">
-                    ${AppIcons.get("x", "ui-icon ui-icon-xl")}
+        if (transcriptBody) {
+            transcriptBody.className = "transcript-body";
+            transcriptBody.innerHTML = `
+                <div style="color: var(--danger); padding: 30px; text-align: center;">
+                    <div style="width: 48px; height: 48px; margin: 0 auto 12px; color: var(--danger); display: flex; align-items: center; justify-content: center;">
+                        ${AppIcons.get("x", "ui-icon ui-icon-xl")}
+                    </div>
+                    <h4>Falha na transcrição</h4>
+                    <p style="margin-top: 8px; font-size: 0.85rem; color: var(--text-muted);">${escapeHtml(item.error || 'Erro desconhecido')}</p>
                 </div>
-                <h4>Falha na transcrição</h4>
-                <p style="margin-top: 8px; font-size: 0.85rem; color: var(--text-muted);">${escapeHtml(item.error || 'Erro desconhecido')}</p>
-            </div>
-        `;
+            `;
+        }
     }
 
     function resetTranscriptView() {
-        transcriptFilename.innerHTML = `
-            <span class="card-title-icon">${AppIcons.get("fileText", "ui-icon")}</span>
-            <span>Resultado da Transcrição</span>
-        `;
-        transcriptMeta.style.display = "none";
-        exportActions.style.display = "none";
-        audioPlayerContainer.classList.add("hidden");
-        statsStrip.classList.add("hidden");
-        searchWrapper.classList.add("hidden");
+        if (transcriptFilename) {
+            transcriptFilename.innerHTML = `
+                <span class="card-title-icon">${AppIcons.get("fileText", "ui-icon")}</span>
+                <span>Resultado da Transcrição</span>
+            `;
+        }
+        if (transcriptMeta) transcriptMeta.style.display = "none";
+        if (exportActions) exportActions.style.display = "none";
+        if (audioPlayerContainer) audioPlayerContainer.classList.add("hidden");
+        if (statsStrip) statsStrip.classList.add("hidden");
+        if (searchWrapper) searchWrapper.classList.add("hidden");
         if (llmActionsCard) llmActionsCard.classList.add("hidden");
         if (toggleRomanizeBtn) toggleRomanizeBtn.classList.add("hidden");
         if (saveEditBtn) saveEditBtn.classList.add("hidden");
@@ -1716,13 +1750,15 @@ document.addEventListener("DOMContentLoaded", () => {
             nativeAudio.src = "";
         }
 
-        transcriptBody.className = "transcript-body empty";
-        transcriptBody.innerHTML = `
-            <div class="placeholder-state">
-                <div class="placeholder-icon">${AppIcons.get("fileText", "ui-icon ui-icon-xl")}</div>
-                <p>Selecione um arquivo de áudio ou vídeo e clique em "Iniciar Transcrição" para ver o texto com minutagem interativa aqui.</p>
-            </div>
-        `;
+        if (transcriptBody) {
+            transcriptBody.className = "transcript-body empty";
+            transcriptBody.innerHTML = `
+                <div class="placeholder-state">
+                    <div class="placeholder-icon">${AppIcons.get("fileText", "ui-icon ui-icon-xl")}</div>
+                    <p>Selecione um arquivo de áudio ou vídeo e clique em "Iniciar Transcrição" para ver o texto com minutagem interativa aqui.</p>
+                </div>
+            `;
+        }
     }
 
     function formatTime(seconds) {

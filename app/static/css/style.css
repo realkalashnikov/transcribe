@@ -224,6 +224,13 @@ svg.ui-icon-xl, .ui-icon-xl { width: 32px !important; height: 32px !important; }
     margin-bottom: 16px;
 }
 
+.export-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
 /* Tabs */
 .tabs {
     display: grid;
@@ -965,6 +972,33 @@ label {
 
 .toast.toast-success .toast-icon {
     color: var(--success);
+}
+
+.toast.toast-error {
+    border-color: rgba(239, 68, 68, 0.45);
+    background: rgba(239, 68, 68, 0.08);
+}
+
+.toast.toast-error .toast-icon {
+    color: var(--danger);
+}
+
+.toast.toast-warning {
+    border-color: rgba(245, 158, 11, 0.45);
+    background: rgba(245, 158, 11, 0.08);
+}
+
+.toast.toast-warning .toast-icon {
+    color: var(--warning);
+}
+
+.toast.toast-info {
+    border-color: rgba(59, 130, 246, 0.45);
+    background: rgba(59, 130, 246, 0.08);
+}
+
+.toast.toast-info .toast-icon {
+    color: var(--primary);
 }
 
 @keyframes toastIn {
