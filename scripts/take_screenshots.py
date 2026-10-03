@@ -14,12 +14,29 @@ if not os.path.exists(EDGE_PATH):
     EDGE_PATH = r"C:\Program Files\Microsoft\Edge\Application\msedge.exe"
 
 def seed_demo_history():
+    import wave
+    import struct
+    import math
+
     history_dir = BASE_DIR / "exports" / "history"
     history_dir.mkdir(parents=True, exist_ok=True)
     demo_file = history_dir / "demo_transcription.json"
+    wav_file = history_dir / "demo_transcription.wav"
+
+    sample_rate = 16000
+    n_samples = int(sample_rate * 2.0)
+    with wave.open(str(wav_file), "w") as wf:
+        wf.setnchannels(1)
+        wf.setsampwidth(2)
+        wf.setframerate(sample_rate)
+        for i in range(n_samples):
+            val = int(32767.0 * 0.1 * math.sin(2.0 * math.pi * 440.0 * (i / sample_rate)))
+            wf.writeframes(struct.pack("<h", val))
+
     data = {
         "id": "demo_transcription",
         "filename": "podcast_ia_futuro.mp3",
+        "audio_file": "demo_transcription.wav",
         "saved_at": "28/09/2026 17:15",
         "timestamp": 1727554500.0,
         "duration": 48.5,
