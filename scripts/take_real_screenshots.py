@@ -38,9 +38,20 @@ def main():
                 page.keyboard.press("Escape")
                 page.wait_for_timeout(300)
 
+            def focus(selector, name, pad=28):
+                loc = page.locator(selector)
+                loc.scroll_into_view_if_needed()
+                page.wait_for_timeout(500)
+                b = loc.bounding_box()
+                page.screenshot(path=str(OUT / name), full_page=True, clip={
+                    "x": max(b["x"] - pad, 0), "y": max(b["y"] - pad, 0) + page.evaluate("window.scrollY"),
+                    "width": b["width"] + 2 * pad, "height": b["height"] + 2 * pad})
+                print(" ->", name)
+                page.evaluate("window.scrollTo(0,0)")
+
             fresh()
-            page.click("#tab-local"); shot("1_motores_local.png")
-            page.click("#tab-cloud"); shot("1b_motores_nuvem.png")
+            page.click("#tab-local"); focus("#settings-card", "1_motores_local.png")
+            page.click("#tab-cloud"); focus("#settings-card", "1b_motores_nuvem.png")
 
             page.click("#btn-open-custom-providers-llm")
             page.click("#tab-modal-custom"); shot("1c_gerenciador_conexoes.png")
@@ -55,13 +66,11 @@ def main():
 
             page.click("#tab-dropzone-url")
             page.fill("#web-url-input", "https://www.youtube.com/watch?v=dQw4w9WgXcQ")
-            shot("2_transcricao_por_url.png")
-            page.click("#tab-dropzone-mic"); shot("2b_gravacao_microfone.png")
+            focus("#media-ingest-card", "2_transcricao_por_url.png")
+            page.click("#tab-dropzone-mic"); focus("#media-ingest-card", "2b_gravacao_microfone.png")
 
-            shot("3_player_e_minutagem.png")
-            page.locator("#llm-actions-card").scroll_into_view_if_needed()
-            shot("4_acoes_ia_resumo.png")
-            page.evaluate("window.scrollTo(0,0)")
+            focus("#transcript-card", "3_player_e_minutagem.png")
+            focus("#llm-actions-card", "4_acoes_ia_resumo.png")
 
             page.click("#remote-btn"); page.wait_for_timeout(800)
             page.click("#tab-remote-lan"); shot("5_acesso_remoto_qrcode.png"); close_modals()

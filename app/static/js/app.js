@@ -1699,7 +1699,9 @@ document.addEventListener("DOMContentLoaded", () => {
         });
 
         nativeAudio.addEventListener("loadedmetadata", () => {
-            audioTotalTime.textContent = formatTime(nativeAudio.duration);
+            if (isFinite(nativeAudio.duration) && nativeAudio.duration > 0) {
+                audioTotalTime.textContent = formatTime(nativeAudio.duration);
+            }
         });
 
         nativeAudio.addEventListener("ended", () => {
