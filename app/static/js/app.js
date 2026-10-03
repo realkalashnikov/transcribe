@@ -571,7 +571,7 @@ document.addEventListener("DOMContentLoaded", () => {
         clearQueueBtn.addEventListener("click", () => {
             if (state.isProcessing) return;
             state.files.forEach(f => {
-                if (f.audioUrl) URL.revokeObjectURL(f.audioUrl);
+                if (f.audioUrl && f.audioUrl.startsWith("blob:")) URL.revokeObjectURL(f.audioUrl);
             });
             state.files = [];
             state.activeItem = null;
@@ -666,7 +666,9 @@ document.addEventListener("DOMContentLoaded", () => {
                         status: "processing",
                         result: null,
                         error: null,
-                        audioUrl: `/api/history/${data.job_id}/audio`
+                        audioUrl: `/api/history/${data.job_id}/audio`,
+                        duration: data.duration,
+                        source: "url"
                     };
                     state.files.push(queueItem);
                     state.activeItem = queueItem;
@@ -689,7 +691,7 @@ document.addEventListener("DOMContentLoaded", () => {
                     hideProgress();
 
                 } catch (e) {
-                    showToast(e.message || "Falha ao processar URL");
+                    showToast(e.message || "Falha ao processar URL", "error");
                 } finally {
                     urlBtn.disabled = false;
                     urlBtn.innerHTML = origHtml;
@@ -998,7 +1000,7 @@ document.addEventListener("DOMContentLoaded", () => {
     function removeFile(fileId) {
         if (state.isProcessing) return;
         const target = state.files.find(f => f.id === fileId);
-        if (target && target.audioUrl) {
+        if (target && target.audioUrl && target.audioUrl.startsWith("blob:")) {
             URL.revokeObjectURL(target.audioUrl);
         }
         state.files = state.files.filter(f => f.id !== fileId);
@@ -1037,7 +1039,18 @@ document.addEventListener("DOMContentLoaded", () => {
                 }
             };
 
-            const sizeFormatted = (item.file.size / (1024 * 1024)).toFixed(1) + " MB";
+            const fileName = item.file ? item.file.name : (item.filename || "Mídia Web");
+            let sizeFormatted = "";
+            if (item.file && typeof item.file.size === "number") {
+                sizeFormatted = (item.file.size / (1024 * 1024)).toFixed(1) + " MB";
+            } else if (item.duration) {
+                sizeFormatted = `${item.duration.toFixed(0)}s (Link Web)`;
+            } else if (item.size) {
+                sizeFormatted = (item.size / (1024 * 1024)).toFixed(1) + " MB";
+            } else {
+                sizeFormatted = item.source === "url" ? "Link Web" : "Áudio";
+            }
+
             const statusMap = {
                 pending: { label: "Pendente", class: "status-pending" },
                 processing: { label: "Processando...", class: "status-running" },
@@ -1045,13 +1058,14 @@ document.addEventListener("DOMContentLoaded", () => {
                 error: { label: "Erro", class: "status-error" }
             };
             const currentStatus = statusMap[item.status] || statusMap.pending;
+            const fileIcon = item.source === "url" ? "link" : "fileAudio";
 
             div.innerHTML = `
                 <div class="queue-item-left">
-                    <span class="file-icon-box">${AppIcons.get("fileAudio", "ui-icon")}</span>
+                    <span class="file-icon-box">${AppIcons.get(fileIcon, "ui-icon")}</span>
                     <div>
-                        <div class="file-name" title="${item.file.name}">${escapeHtml(item.file.name)}</div>
-                        <small style="color: var(--text-dim);">${sizeFormatted}</small>
+                        <div class="file-name" title="${escapeHtml(fileName)}">${escapeHtml(fileName)}</div>
+                        <small style="color: var(--text-dim);">${escapeHtml(sizeFormatted)}</small>
                     </div>
                 </div>
                 <div style="display: flex; align-items: center; gap: 8px;">
@@ -1356,11 +1370,35 @@ document.addEventListener("DOMContentLoaded", () => {
         let resolvedType = type;
         if (!resolvedType) {
             const lower = (message || "").toLowerCase();
-            if (lower.includes("erro") || lower.includes("falha") || lower.includes("error") || lower.includes("bloqueio") || lower.includes("falhou") || lower.includes("incorreto")) {
+            if (
+                lower.includes("erro") ||
+                lower.includes("falha") ||
+                lower.includes("error") ||
+                lower.includes("fail") ||
+                lower.includes("cannot") ||
+                lower.includes("undefined") ||
+                lower.includes("typeerror") ||
+                lower.includes("bloqueio") ||
+                lower.includes("falhou") ||
+                lower.includes("incorreto") ||
+                lower.includes("invalid") ||
+                lower.includes("excede")
+            ) {
                 resolvedType = "error";
-            } else if (lower.includes("sucesso") || lower.includes("copiado") || lower.includes("baixado") || lower.includes("salvo") || lower.includes("pronto")) {
+            } else if (
+                lower.includes("sucesso") ||
+                lower.includes("copiado") ||
+                lower.includes("baixado") ||
+                lower.includes("salvo") ||
+                lower.includes("pronto")
+            ) {
                 resolvedType = "success";
-            } else if (lower.includes("atenção") || lower.includes("cuidado") || lower.includes("aviso") || lower.includes("aguarde")) {
+            } else if (
+                lower.includes("atenção") ||
+                lower.includes("cuidado") ||
+                lower.includes("aviso") ||
+                lower.includes("aguarde")
+            ) {
                 resolvedType = "warning";
             } else {
                 resolvedType = "info";
