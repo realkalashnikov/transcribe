@@ -393,6 +393,23 @@ document.addEventListener("DOMContentLoaded", () => {
             window.history.replaceState({}, document.title, cleanUrl);
         }
 
+        // Garante dados de hardware disponíveis de forma síncrona imediata para capturas e screenshots
+        if (params.get("demo") || params.get("hardware")) {
+            if (!window.__CACHED_HARDWARE) {
+                window.__CACHED_HARDWARE = {
+                    cpu_name: "AMD Ryzen 5 4600G with Radeon Graphics",
+                    cpu_cores: 12,
+                    ram_gb: 15.9,
+                    gpu_name: "AMD Radeon RX 6600",
+                    gpu_vendor: "AMD",
+                    gpu_available: false,
+                    recommended_device: "cpu",
+                    supported_devices: ["cpu"],
+                    execution_notes: "Placa AMD Radeon RX 6600 detectada. No Windows, a inferência local com faster-whisper é executada na AMD Ryzen 5 4600G (12 threads com quantização int8) para máxima compatibilidade e rapidez."
+                };
+            }
+        }
+
         // Aplica abas e modos de foco de forma síncrona imediata
         if (params.get("tab") === "url") {
             const tabUrl = document.getElementById("tab-dropzone-url");
@@ -566,6 +583,33 @@ document.addEventListener("DOMContentLoaded", () => {
                 if (outTitle) outTitle.innerHTML = `<span data-icon="fileText" data-icon-class="ui-icon ui-icon-sm"></span> Resumo Executivo (Groq / Llama-3.3-70B)`;
                 outContent.innerHTML = `<strong>Visão Geral do Episódio:</strong>\n• <strong>Arquitetura Local:</strong> Apresentação do faster-whisper com quantização int8, alcançando processamento 4x mais rápido na CPU com consumo mínimo de RAM.\n• <strong>Privacidade & Segurança:</strong> Transcrição e arquivos persistidos 100% no disco local, sem dependência de nuvem ou vazamento de dados.\n• <strong>Novos Recursos:</strong> Demonstração de sincronização por palavra (Karaoke), edição inline e ingestão direta de links do YouTube com proteção anti-SSRF.\n\n<strong>Ações & Próximos Passos:</strong>\n1. Validar suporte para novos idiomas e romanização fonética automática.\n2. Expandir exportações para contêineres MP4 com legendas embutidas.`;
             }
+        }
+
+        if (params.get("tab") === "mic") {
+            const tabMic = document.getElementById("tab-dropzone-mic");
+            if (tabMic) tabMic.click();
+        }
+
+        if (params.get("tab_engine") === "cloud") {
+            if (tabCloud) tabCloud.click();
+        } else if (params.get("tab_engine") === "local") {
+            if (tabLocal) tabLocal.click();
+        }
+
+        if (params.get("modal_providers") === "cloud") {
+            openProvidersModal();
+            const tabCloudModal = document.getElementById("tab-modal-cloud");
+            if (tabCloudModal) tabCloudModal.click();
+            const kGroq = document.getElementById("modal-key-groq");
+            const kOpenai = document.getElementById("modal-key-openai");
+            const kGemini = document.getElementById("modal-key-gemini");
+            if (kGroq && !kGroq.value) kGroq.value = "gsk_live_94F2k9x••••••••••••••••••••••••••••";
+            if (kOpenai && !kOpenai.value) kOpenai.value = "sk-proj-7a8K9x••••••••••••••••••••••••••";
+            if (kGemini && !kGemini.value) kGemini.value = "AIzaSyD-••••••••••••••••••••••••••••••••";
+        } else if (params.get("modal_providers") === "custom") {
+            openProvidersModal();
+            const tabCustomModal = document.getElementById("tab-modal-custom");
+            if (tabCustomModal) tabCustomModal.click();
         }
 
         if (params.get("remote")) {

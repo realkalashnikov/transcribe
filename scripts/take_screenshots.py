@@ -25,6 +25,7 @@ def capture_edge(url: str, output_path: Path, width: int, height: int, scale: fl
         "--hide-scrollbars",
         f"--user-data-dir={profile_dir}",
         "--disk-cache-size=0",
+        "--virtual-time-budget=2500",
         f"--window-size={width},{height}",
         f"--force-device-scale-factor={scale}",
         f"--screenshot={str(output_path)}",
@@ -142,8 +143,8 @@ def main():
         cli_png = SCREENSHOTS_DIR / "cli_menu.png"
         
         # 1. 16:9 Feed Format - Preview limpo da UI completa
-        print(f"[3/7] Capturando preview em {preview_png} (Feed 1600x1300)...")
-        capture_edge("http://127.0.0.1:8008", preview_png, 1600, 1300, 1.15, temp_profile)
+        print(f"[3/8] Capturando preview em {preview_png} (Feed 1600x1200)...")
+        capture_edge("http://127.0.0.1:8008", preview_png, 1600, 1200, 1.15, temp_profile)
         print(" -> preview.png capturado!")
 
         # 1.5 Aba de Ingestão por Link da Web
@@ -153,7 +154,7 @@ def main():
         print(" -> url_ingestion.png capturado!")
 
         # 2. Feed Format com Transcrição ativa e Player de Áudio
-        print(f"[4/7] Capturando transcrição ativa em {transcription_png} (Feed 1600x1200)...")
+        print(f"[4/8] Capturando transcrição ativa em {transcription_png} (Feed 1600x1200)...")
         capture_edge("http://127.0.0.1:8008/?demo=1", transcription_png, 1600, 1200, 1.15, temp_profile)
         print(" -> transcription_view.png capturado!")
 
@@ -162,50 +163,64 @@ def main():
         capture_edge("http://127.0.0.1:8008/?demo=1&remote=1", remote_png, 1600, 1200, 1.15, temp_profile)
         print(" -> remote_modal.png capturado!")
 
-        # 3.5 Feed Format com Modal de Diagnóstico de Hardware Atualizado
+        # 3.5 Feed Format com Modal de Diagnóstico de Hardware Atualizado (mostrando toda a interface ao fundo)
         hardware_png = SCREENSHOTS_DIR / "hardware_modal.png"
         print(f"[5.5/8] Capturando modal de hardware em {hardware_png} (Feed 1600x1200)...")
-        capture_edge("http://127.0.0.1:8008/?hardware=1", hardware_png, 1600, 1200, 1.15, temp_profile)
+        capture_edge("http://127.0.0.1:8008/?demo=1&hardware=1", hardware_png, 1600, 1200, 1.15, temp_profile)
         print(" -> hardware_modal.png capturado!")
 
         # ========================================================
-        # PRINTS DEDICADOS DE ALTA DEFINIÇÃO PARA O LINKEDIN
+        # PRINTS DEDICADOS DE ALTA DEFINIÇÃO PARA O LINKEDIN / REDES
         # ========================================================
         linkedin_dir = SCREENSHOTS_DIR / "linkedin"
         linkedin_dir.mkdir(parents=True, exist_ok=True)
-        print("\n[+] Gerando pacote de prints em alta resolução dedicados para o LinkedIn...")
+        print("\n[+] Gerando pacote de prints em alta resolução dedicados para o LinkedIn e Redes...")
 
         # LinkedIn 1: Motores Locais (Faster-Whisper, Whisper.cpp, int8)
         print(" -> Gerando 1_motores_local.png...")
-        capture_edge("http://127.0.0.1:8008/?focus=motores", linkedin_dir / "1_motores_local.png", 1050, 1050, 1.55, temp_profile)
+        capture_edge("http://127.0.0.1:8008/?demo=1&tab_engine=local", linkedin_dir / "1_motores_local.png", 1550, 1100, 1.2, temp_profile)
 
         # LinkedIn 1b: Motores de Nuvem (Groq, OpenAI, Gemini)
         print(" -> Gerando 1b_motores_nuvem.png...")
-        capture_edge("http://127.0.0.1:8008/?focus=nuvem", linkedin_dir / "1b_motores_nuvem.png", 1050, 1050, 1.55, temp_profile)
+        capture_edge("http://127.0.0.1:8008/?demo=1&tab_engine=cloud", linkedin_dir / "1b_motores_nuvem.png", 1550, 1100, 1.2, temp_profile)
 
-        # LinkedIn 1c: Gerenciador de Servidores & APIs Próprias (Ollama, vLLM, OpenRouter)
+        # LinkedIn 1c: Gerenciador de Servidores & APIs Próprias (Formulário completo de conexão)
         print(" -> Gerando 1c_gerenciador_conexoes.png...")
-        capture_edge("http://127.0.0.1:8008/?focus=providers", linkedin_dir / "1c_gerenciador_conexoes.png", 1150, 950, 1.55, temp_profile)
+        capture_edge("http://127.0.0.1:8008/?demo=1&modal_providers=custom", linkedin_dir / "1c_gerenciador_conexoes.png", 1550, 1100, 1.2, temp_profile)
 
-        # LinkedIn 1d: Diagnóstico de Hardware e Aceleração Local
+        # LinkedIn 1c2: Chaves de API na Nuvem
+        print(" -> Gerando 1c_chaves_api_nuvem.png...")
+        capture_edge("http://127.0.0.1:8008/?demo=1&modal_providers=cloud", linkedin_dir / "1c_chaves_api_nuvem.png", 1550, 1100, 1.2, temp_profile)
+
+        # LinkedIn 1d: Diagnóstico de Hardware e Aceleração Local (com visão completa das abas ao fundo)
         print(" -> Gerando 1d_diagnostico_hardware.png...")
-        capture_edge("http://127.0.0.1:8008/?hardware=1", linkedin_dir / "1d_diagnostico_hardware.png", 1150, 950, 1.55, temp_profile)
+        capture_edge("http://127.0.0.1:8008/?demo=1&hardware=1", linkedin_dir / "1d_diagnostico_hardware.png", 1550, 1100, 1.2, temp_profile)
 
         # LinkedIn 2: Ingestão por Link da Web / YouTube + Fila Ativa
         print(" -> Gerando 2_transcricao_por_url.png...")
-        capture_edge("http://127.0.0.1:8008/?focus=url", linkedin_dir / "2_transcricao_por_url.png", 1150, 900, 1.6, temp_profile)
+        capture_edge("http://127.0.0.1:8008/?tab=url", linkedin_dir / "2_transcricao_por_url.png", 1550, 1100, 1.2, temp_profile)
+
+        # LinkedIn 2b: Gravação Direta pelo Microfone
+        print(" -> Gerando 2b_gravacao_microfone.png...")
+        capture_edge("http://127.0.0.1:8008/?tab=mic", linkedin_dir / "2b_gravacao_microfone.png", 1550, 1100, 1.2, temp_profile)
 
         # LinkedIn 3: Player Integrado, Timestamps Clicáveis e Edição Inline
         print(" -> Gerando 3_player_e_minutagem.png...")
-        capture_edge("http://127.0.0.1:8008/?focus=player&demo=1", linkedin_dir / "3_player_e_minutagem.png", 1100, 1100, 1.55, temp_profile)
+        capture_edge("http://127.0.0.1:8008/?demo=1", linkedin_dir / "3_player_e_minutagem.png", 1550, 1100, 1.2, temp_profile)
 
         # LinkedIn 4: Ações com IA (Resumo Executivo, Ata de Reunião com Llama/Gemini)
         print(" -> Gerando 4_acoes_ia_resumo.png...")
-        capture_edge("http://127.0.0.1:8008/?focus=ai&demo=1", linkedin_dir / "4_acoes_ia_resumo.png", 1100, 950, 1.55, temp_profile)
+        capture_edge("http://127.0.0.1:8008/?demo=1&focus=ai", linkedin_dir / "4_acoes_ia_resumo.png", 1550, 1100, 1.2, temp_profile)
 
-        # LinkedIn 5: Visão Geral em Alta Resolução
-        print(" -> Gerando 5_visao_geral.png...")
-        capture_edge("http://127.0.0.1:8008/?demo=1", linkedin_dir / "5_visao_geral.png", 1500, 1100, 1.35, temp_profile)
+        # LinkedIn 5: Acesso Remoto no Celular & QR Code
+        print(" -> Gerando 5_acesso_remoto_qrcode.png...")
+        capture_edge("http://127.0.0.1:8008/?demo=1&remote=1", linkedin_dir / "5_acesso_remoto_qrcode.png", 1550, 1100, 1.2, temp_profile)
+
+        # LinkedIn 6: Visão Geral em Alta Resolução
+        print(" -> Gerando 6_visao_geral.png...")
+        capture_edge("http://127.0.0.1:8008/?demo=1", linkedin_dir / "6_visao_geral.png", 1600, 1200, 1.15, temp_profile)
+        # Compatibilidade com 5_visao_geral anterior
+        shutil.copyfile(linkedin_dir / "6_visao_geral.png", linkedin_dir / "5_visao_geral.png")
 
         # 4. 9:16 Vertical Format para WhatsApp Status, Instagram Stories e Facebook Stories
         print(f"[7/8] Capturando formato vertical Story/Status em {story_png} (9:16 vertical)...")
